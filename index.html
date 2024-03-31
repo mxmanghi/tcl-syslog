@@ -1,0 +1,210 @@
+<!-- Creator     : groff version 1.18.1 -->
+<!-- CreationDate: Sun Apr 13 19:11:28 2008 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title>tcl-syslog</title>
+</head>
+<body>
+
+<h1 align=center>tcl-syslog</h1>
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#EXAMPLE">EXAMPLE</a><br>
+<a href="#OUTPUT">OUTPUT</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+<a href="#COPYRIGHT">COPYRIGHT</a><br>
+
+<hr>
+<a name="NAME"></a>
+<h2>NAME</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>tcl&minus;syslog &minus; Syslog interface for Tcl</p>
+</td>
+</table>
+<a name="SYNOPSIS"></a>
+<h2>SYNOPSIS</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>package require syslog</b></p>
+<!-- INDENTATION -->
+<p><b>syslog ?&minus;ident</b> <i>ident</i><b>?
+?&minus;facility</b> <i>facility</i><b>?</b> <i>priority
+message</i><br>
+Returns: nothing</p>
+</td>
+</table>
+<a name="DESCRIPTION"></a>
+<h2>DESCRIPTION</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>This project provides a Tcl interface to the standard
+*nix syslog service. It implements a Tcl package that
+exports the full functionality of the underlying syslog
+facility to the Tcl programming language. This includes
+local and remote logging.</p>
+<!-- INDENTATION -->
+<p>Syslog is a standard for forwarding log messages in an IP
+network. It is also used to refer to the implementation of
+this standard and API, that supports both remote and local
+logging. It is typically used for computer system management
+and security auditing; usually to aggregate log messages in
+a central repository. It is standardized within the Syslog
+working group of the IETF.</p>
+<!-- INDENTATION -->
+<p>Syslog is available in all POSIX compliant and
+POSIX&minus;like Operating Systems.</p>
+<!-- INDENTATION -->
+<p><i>ident</i> is a optional string argument that is used
+by syslog to differentiate between processes and log
+contexts. It is up to the user to specify any Tcl string
+here.</p>
+<!-- INDENTATION -->
+<p><i>facility</i> is an optional string dictated by syslog,
+and categorizes the entity that logs the message, in the
+following categories/facilities:</p>
+<!-- INDENTATION -->
+<pre>       Facility    Description
+       auth        security/authorization messages
+       authpriv    security/authorization messages (private)
+       cron        clock daemon (cron and at)
+       daemon      system daemons without separate facility value
+       ftp         ftp daemon
+       kern        kernel messages
+       local[0&minus;7]  local0 to local7 are reserved for local use
+       lrp         line printer subsystem
+       mail        mail subsystem
+       news        USENET news subsystem
+       syslog      messages generated internally by syslogd(8)
+       user        generic user&minus;level messages
+       uucp        UUCP subsystem
+
+The default facility is &quot;user&quot;.
+
+<i>priority</i> is another string dictated by syslog, that describes
+the severity of the message. In order of higher to lower severity, the
+possible strings are:
+       Priority    Description
+       emergency   system is unusable
+       alert       action must be taken immediately
+       critical    critical conditions
+       error       error conditions
+       warning     warning conditions
+       notice      normal, but significant, condition
+       info        informational message
+       debug       debug&minus;level message
+
+This argument is mandatory.
+
+</pre>
+</td>
+</table>
+<a name="EXAMPLE"></a>
+<h2>EXAMPLE</h2>
+<!-- INDENTATION -->
+
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<pre>package require syslog
+
+syslog critical &quot;Message 1&quot;
+syslog &minus;ident tclsh warning &quot;Message 2&quot;
+syslog &minus;facility local0 notice &quot;Message 3&quot;
+syslog &minus;ident tclsh &minus;facility user error &quot;Message 4&quot;
+
+if {! [catch {syslog &minus;ident tclsh &minus;facility user3 error &quot;Message&quot;}]} {
+    error
+}
+
+if {! [catch {syslog &minus;ident tclsh &minus;facility user error3 &quot;Message&quot;}]} {
+    error
+}
+
+</pre>
+</td>
+</table>
+<a name="OUTPUT"></a>
+<h2>OUTPUT</h2>
+<!-- INDENTATION -->
+
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<pre>In /var/log/messages:
+
+Feb 29 14:03:15 localhost tclsh: Message 1
+Feb 29 14:03:15 localhost tclsh: Message 2
+Feb 29 14:03:55 localhost tclsh: Message 1
+Feb 29 14:03:55 localhost tclsh: Message 2
+Feb 29 14:03:55 localhost tclsh: Message 3
+
+</pre>
+</td>
+</table>
+<a name="AUTHOR"></a>
+<h2>AUTHOR</h2>
+<!-- INDENTATION -->
+
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>Alexandros Stergiakis sterg@kth.se</p>
+</td>
+</table>
+<a name="COPYRIGHT"></a>
+<h2>COPYRIGHT</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>Copyright (C) 2008 Alexandros Stergiakis</p>
+<!-- INDENTATION -->
+<p>This program is free software: you can redistribute it
+and/or<br>
+modify it under the terms of the GNU General Public License
+as<br>
+published by the Free Software Foundation, either version 3
+of<br>
+the License, or (at your option) any later version.</p>
+<!-- INDENTATION -->
+<p>This program is distributed in the hope that it will be
+useful,<br>
+but WITHOUT ANY WARRANTY; without even the implied warranty
+of<br>
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See
+the<br>
+GNU General Public License for more details.</p>
+<!-- INDENTATION -->
+<p>You should have received a copy of the GNU General Public
+License<br>
+along with this program. If not, see
+&lt;http://www.gnu.org/licenses/&gt;.</p>
+</td>
+</table>
+<hr>
+</body>
+</html>

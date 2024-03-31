@@ -1,0 +1,41 @@
+syslog - Syslog loggin service for Tcl
+
+A Tcl interface to the POSIX syslog service.
+It implements a new Tcl command 'syslog' that allows a
+Tcl script to log messages to the syslog facility
+available in all *unix systems. It suppors all features
+of syslog: Identify, Facility, Priority.
+
+For instructions on how to use, consult the syslog (n) man page.
+
+To make type:
+
+      ./configure
+      make 
+      make install
+
+The configure script will deduce $PREFIX from the tcl installation.
+The generated Makefile uses the file $PREFIX/lib/tclConfig.sh that was left by
+the make of tcl for most of its configuration parameters.
+
+The Makefile generates pkgIndex.tcl files that are compatible with tcl >= 7.6.
+
+Written by:  Alexandros Stergiakis (sterg@kth.se)
+Adopted by:  Massimo Manghi <massimo.manghi@rivetweb.org>
+
+Use at your own risk.
+
+    Copyright (C) 2008  Alexandros Stergiakis
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.

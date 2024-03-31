@@ -1,0 +1,7 @@
+ * Use TCL_THREADS
+ * Remove dependency from internal numbering of facility & severity constants
+ * Create tests with "tcltest".
+
+Look for "TODO" in the code.
+Or
+grep -R TODO *
