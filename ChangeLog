@@ -1,8 +1,12 @@
-31-3-2024 Massimo Manghi <massimo.manghi@rivetweb.org>
-	* Adopting tcl-syslog as the package needed
-	TEA build script updates while Alexander 
-	(the original author) has become unresponsive
-	at the 2008 email address. 
+31-03-2024 Massimo Manghi <massimo.manghi@rivetweb.org>
+    * README.md: basic information that are displayes on Github website
+    preparing to release this code as 1.2 even though there are no
+    new features, but to mark the fact it's a step forward
+    * NEWS: add news entry
+    * INSTALL: writing basic installation instructions
+	* -: Adopting tcl-syslog as the package needed
+	TEA build script updates while Alexander (the original author)
+    has become unresponsive at the 2008 email address. 
 
 1.1 20-4-2008 
  * Fixed a memory leak.
