@@ -1,0 +1,12 @@
+31-03-2024: Installation of the package should be straightforward. For example
+
+      autoreconf
+      ./configure
+      make 
+      make install
+
+you may exploit TEA provided options in order to have
+customization such as choosing a specific Tcl version
+
+    ./configure --with-tcl=/usr/lib/tcl8.6
+
