@@ -38,7 +38,6 @@ the entity that logs the message, in the following categories/facilities:
        syslog      messages generated internally by syslogd(8)
        user        generic user\-level messages
        uucp        UUCP subsystem
-.fo
 .PP 
 The default facility is "user".
 .PP 
@@ -56,7 +55,6 @@ possible strings are:
        notice      normal, but significant, condition
        info        informational message
        debug       debug\-level message
-.fo
 .PP 
 This argument is mandatory.
 .SH "EXAMPLE"
@@ -75,7 +73,6 @@ if {! [catch {syslog \-ident tclsh \-facility user3 error "Message"}]} {
 if {! [catch {syslog \-ident tclsh \-facility user error3 "Message"}]} {
     error
 }
-.fo
 .SH "OUTPUT"
 .nf 
 In /var/log/messages:
@@ -85,7 +82,6 @@ Feb 29 14:03:15 localhost tclsh: Message 2
 Feb 29 14:03:55 localhost tclsh: Message 1
 Feb 29 14:03:55 localhost tclsh: Message 2
 Feb 29 14:03:55 localhost tclsh: Message 3
-.fo
 .SH "AUTHOR"
 Alexandros Stergiakis
 sterg@kth.se
