@@ -79,7 +79,7 @@ static int SyslogCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Ob
             facility_s = Tcl_GetString(objv[++i]);
             i++;
             if ((facility = convert_facility(interp, facility_s)) == ERROR) {
-                Tcl_SetResult(interp, "Erroneous facility specified.", TCL_STATIC);
+                Tcl_SetObjResult(interp,Tcl_NewStringObj("Erroneous facility specified.",-1));
                 return TCL_ERROR;
             }
             continue;
@@ -92,7 +92,7 @@ static int SyslogCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Ob
 
             priority_s = Tcl_GetString(objv[i]); 
             if ((priority = convert_priority(interp, priority_s)) == ERROR) {
-                Tcl_SetResult(interp, "Erroneous priority specified.", TCL_STATIC);
+                Tcl_SetObjResult(interp,Tcl_NewStringObj("Erroneous priority specified.",-1));
                 return TCL_ERROR;
             }
 

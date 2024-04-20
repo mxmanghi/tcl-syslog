@@ -1,3 +1,8 @@
+20-04-2024 Massimo Manghi <mxmanghi@apache.org>
+    * VERSION: Add version file
+    * configure.ac: let's get the current version from VERSION
+    * unix/syslog.c: adopting Tcl_SetObjResult instead of Tcl_SetResult
+
 31-03-2024 Massimo Manghi <massimo.manghi@rivetweb.org>
     * README.md: basic information that are displayes on Github website
     preparing to release this code as 1.2 even though there are no
