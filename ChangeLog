@@ -1,3 +1,10 @@
+28-04-2024 Massimo Manghi <mxmanghi@apache.org>
+    * unix/syslog.c: Add Tcl_IncrRefCount in convert_facility and 
+    convert_priority as Tcl objects are created and then passed
+    to Tcl_GetIndexFromObj that could well increment/decrement
+    the reference counter causing the release of the memory held
+    by them
+
 20-04-2024 Massimo Manghi <mxmanghi@apache.org>
     * VERSION: Add version file
     * configure.ac: let's get the current version from VERSION

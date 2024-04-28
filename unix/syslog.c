@@ -108,12 +108,23 @@ static int SyslogCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Ob
     return TCL_OK;
 }
 
-static int convert_facility(Tcl_Interp *interp, const char *facility) {
-    static char* facilities[] = { "kern", "user", "mail", "daemon", "auth", "syslog", "lrp", "news", "uucp", "cron", "authpriv", "ftp", 
-                                  "local0", "local1", "local2", "local3", "local4", "local5", "local6", "local7", NULL };
+static int convert_facility (Tcl_Interp *interp, const char *facility) {
+    static char* facilities[] = { "kern", "user", "mail", "daemon", "auth", "syslog",
+                                  "lrp", "news", "uucp", "cron", "authpriv", "ftp",
+                                  "local0", "local1", "local2", "local3", "local4",
+                                  "local5", "local6", "local7", NULL };
     int index;
     Tcl_Obj *facility_o;
+
     facility_o = Tcl_NewStringObj(facility, -1);
+
+    /* The Tcl object reference counter must be incremented, because it's decremented
+     * before returning, in the first place. Moreover Tcl_GetIndexFromObj could 
+     * legitimately increment and later decrement it
+     * before returning causing the object_o memory to be released. 
+     */
+
+    Tcl_IncrRefCount(facility_o);
 
     if (Tcl_GetIndexFromObj(interp, facility_o, facilities, "facility", 0, &index) != TCL_OK) {
         Tcl_DecrRefCount(facility_o);
@@ -124,11 +135,15 @@ static int convert_facility(Tcl_Interp *interp, const char *facility) {
     return index<<3;
 }
 
-static int convert_priority(Tcl_Interp *interp, const char *priority) {
+static int convert_priority (Tcl_Interp *interp, const char *priority) {
     static char* priorities[] = {"emergency", "alert", "critical", "error", "warning", "notice", "info", "debug", NULL};
     int index;
     Tcl_Obj *priority_o;
     priority_o = Tcl_NewStringObj(priority, -1);
+
+    /* see convert_facility */
+
+    Tcl_IncrRefCount(priority_o);
 
     if (Tcl_GetIndexFromObj(interp, priority_o, priorities, "priority", 0, &index) != TCL_OK) {
         Tcl_DecrRefCount(priority_o);
