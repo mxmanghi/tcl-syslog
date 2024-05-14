@@ -1,3 +1,9 @@
+14-05-2024 Massimo Manghi <mxmanghi@apache.org>
+    * unix/syslog.c: Using real LOG_* symbols in order to determine
+    facility and severity, Fixed typo in facility code
+    * VERSION: bumping version to 1.2.4
+    * pkgIndex.tcl: adding pkg index file
+
 28-04-2024 Massimo Manghi <mxmanghi@apache.org>
     * unix/syslog.c: Add Tcl_IncrRefCount in convert_facility and 
     convert_priority as Tcl objects are created and then passed

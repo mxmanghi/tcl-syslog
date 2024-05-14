@@ -1,22 +1,23 @@
 /*
-    syslog - Syslog loggin service for Tcl
-    A Tcl interface to the POSIX syslog service.
-
-    Copyright (C) 2008  Alexandros Stergiakis
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ *    syslog - Syslog loggin service for Tcl
+ *    A Tcl interface to the POSIX syslog service.
+ *
+ *    Copyright (C) 2008  Alexandros Stergiakis
+ *    Copyright 2024 Massimo Manghi <mxmanghi@apache.org>
+ *
+ *    This program is free software: you can redistribute it and/or modify
+ *    it under the terms of the GNU General Public License as published by
+ *    the Free Software Foundation, either version 3 of the License, or
+ *    (at your option) any later version.
+ *
+ *    This program is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU General Public License for more details.
+ *
+ *    You should have received a copy of the GNU General Public License
+ *    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 /*
  * syslog.c
@@ -110,9 +111,13 @@ static int SyslogCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Ob
 
 static int convert_facility (Tcl_Interp *interp, const char *facility) {
     static char* facilities[] = { "kern", "user", "mail", "daemon", "auth", "syslog",
-                                  "lrp", "news", "uucp", "cron", "authpriv", "ftp",
+                                  "lpr", "news", "uucp", "cron", "authpriv", "ftp",
                                   "local0", "local1", "local2", "local3", "local4",
                                   "local5", "local6", "local7", NULL };
+    static int facility_code[] = { LOG_KERN, LOG_USER, LOG_MAIL, LOG_DAEMON, LOG_AUTH, LOG_SYSLOG,
+                                   LOG_LPR, LOG_NEWS, LOG_UUCP, LOG_CRON, LOG_AUTHPRIV, LOG_FTP,
+                                   LOG_LOCAL0, LOG_LOCAL1, LOG_LOCAL2, LOG_LOCAL3, LOG_LOCAL4,
+                                   LOG_LOCAL5, LOG_LOCAL6, LOG_LOCAL7 };
     int index;
     Tcl_Obj *facility_o;
 
@@ -132,11 +137,12 @@ static int convert_facility (Tcl_Interp *interp, const char *facility) {
     }
     Tcl_DecrRefCount(facility_o);
 
-    return index<<3;
+    return facility_code[index];
 }
 
 static int convert_priority (Tcl_Interp *interp, const char *priority) {
     static char* priorities[] = {"emergency", "alert", "critical", "error", "warning", "notice", "info", "debug", NULL};
+    static int  priority_code[] = {LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR , LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG};
     int index;
     Tcl_Obj *priority_o;
     priority_o = Tcl_NewStringObj(priority, -1);
@@ -151,5 +157,5 @@ static int convert_priority (Tcl_Interp *interp, const char *priority) {
     }
     Tcl_DecrRefCount(priority_o);
 
-    return index;
+    return priority_code[index];
 }
