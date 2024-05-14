@@ -6,7 +6,7 @@ tcl\-syslog \- Syslog interface for Tcl
 .SH "SYNOPSIS"
 \fBpackage require syslog\fI\fR
 .PP 
-\fBsyslog ?\-ident\fI ident\fB? ?\-facility \fIfacility\fB? \fIpriority message\fR
+\fBsyslog ?\-ident\fI ident\fB? ?\-facility \fIfacility\fB? ?\-pid? ?\-perror? \fIpriority message\fR
 .br 
 Returns: nothing
 .SH "DESCRIPTION"
@@ -16,11 +16,15 @@ Syslog is a standard for forwarding log messages in an IP network. It is also us
 
 Syslog is available in all POSIX compliant and POSIX\-like Operating Systems.
 .PP 
-\fIident\fR is a optional string argument that is used by syslog to 
+\fI-ident\fR is a optional string argument that is used by syslog to 
 differentiate between processes and log contexts. It is up to the user 
-to specify any Tcl string here.
+to specify any string here.
+.PP
+\fI-pid\fR prints also the process pid in the log message
+.PP
+\fI-perror\fR prints the message also to stderr
 .PP 
-\fIfacility\fR is an optional string dictated by syslog, and categorizes
+\fI-facility\fR is an optional string dictated by syslog, and categorizes
 the entity that logs the message, in the following categories/facilities:
 .br 
 .nf 
@@ -32,7 +36,7 @@ the entity that logs the message, in the following categories/facilities:
        ftp         ftp daemon
        kern        kernel messages
        local[0\-7]  local0 to local7 are reserved for local use
-       lrp         line printer subsystem
+       lpr         line printer subsystem
        mail        mail subsystem
        news        USENET news subsystem
        syslog      messages generated internally by syslogd(8)
@@ -62,32 +66,36 @@ This argument is mandatory.
 package require syslog
 
 syslog critical "Message 1"
-syslog \-ident tclsh warning "Message 2"
-syslog \-facility local0 notice "Message 3"
-syslog \-ident tclsh \-facility user error "Message 4"
+syslog -ident tclsh warning "Message 2"
+syslog -facility local0 notice "Message 3"
+syslog -ident tclsh -facility user error "Message 4"
+syslog -pid critical "Message 5.0"
+syslog -pid -ident tclsh critical "Message 5.1"
+syslog -pid -facility local0 debug "Message 5.1"
+syslog -pid -facility local1 -ident tclsh info "Message 5.2"
+syslog -pid -ident tclsh -facility local2 warning "Message 5.3"
 
-if {! [catch {syslog \-ident tclsh \-facility user3 error "Message"}]} {
-    error
-}
+Outputs in /var/log/syslog (syslog timestamps and line prefix removed) :
 
-if {! [catch {syslog \-ident tclsh \-facility user error3 "Message"}]} {
-    error
-}
-.SH "OUTPUT"
-.nf 
-In /var/log/messages:
+ tclsh: Message 1
+ tclsh: Message 2
+ tclsh: Message 3
+ testident: Message 4
+ tclsh[7049]: Message 5.0
+ my_ident[7049]: Message 5.1
+ tclsh[7049]: Message 5.1
+ my_ident[7049]: Message 5.2
+ my_ident[7049]: Message 5.3
 
-Feb 29 14:03:15 localhost tclsh: Message 1
-Feb 29 14:03:15 localhost tclsh: Message 2
-Feb 29 14:03:55 localhost tclsh: Message 1
-Feb 29 14:03:55 localhost tclsh: Message 2
-Feb 29 14:03:55 localhost tclsh: Message 3
 .SH "AUTHOR"
-Alexandros Stergiakis
-sterg@kth.se
+Alexandros Stergiakis sterg@kth.se
+.br
+Massimo Manghi mxmanghi@apache.org
 .SH "COPYRIGHT"
 .PP 
 Copyright (C) 2008  Alexandros Stergiakis
+.br
+Copyright (C) 2024  Massimo Manghi
 .PP 
 This program is free software: you can redistribute it and/or 
 .br 

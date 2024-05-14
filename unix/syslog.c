@@ -26,7 +26,6 @@
 
 #include <string.h> // strcmp
 #include <syslog.h>
-
 #include <tcl.h>
 
 #define ERROR -1
@@ -56,54 +55,91 @@ int Syslog_Init(Tcl_Interp *interp) {
     return TCL_OK;
 }
 
-static int SyslogCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]) {
-    char *ident = NULL;
-    char *facility_s = NULL;
-    char *priority_s = NULL;
-    char *message = NULL;
-    int facility = LOG_USER;
-    int priority = LOG_DEBUG;
+static void wrong_arguments_message (Tcl_Interp* interp,int c,Tcl_Obj *CONST86 objv[])
+{
+    Tcl_WrongNumArgs(interp, c, objv, "?-ident ident? ?-facility facility? ?-pid? ?-perror? priority message");
+}
 
-    int i = 1;
-    while (1) {
-        if (objc < 2 + ((i%2 == 0) ? (i+1) : i)) {
-            Tcl_WrongNumArgs(interp, 1, objv, "?-ident ident? ?-facility facility? priority message");
-            return TCL_ERROR;
-        }
 
-        if (strcmp("-ident", Tcl_GetString(objv[i])) == 0) {
-            ident = Tcl_GetString(objv[++i]);
-            i++;
-            continue;
+static int SyslogCmd(ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj *CONST86 objv[]) {
+    char* ident         = NULL;
+    char* facility_s    = NULL;
+    char* priority_s    = NULL;
+    char* message       = NULL;
+    int   facility      = LOG_USER;
+    int   priority      = LOG_DEBUG;
+    int   option        = LOG_NDELAY;
+    char* argument;
 
-        } else if (strcmp("-facility", Tcl_GetString(objv[i])) == 0) {
-            facility_s = Tcl_GetString(objv[++i]);
-            i++;
-            if ((facility = convert_facility(interp, facility_s)) == ERROR) {
-                Tcl_SetObjResult(interp,Tcl_NewStringObj("Erroneous facility specified.",-1));
+    /*  
+     *  having less than 2 arguments to 'syslog' is wrong 
+     *  anyway and we print the usual error message about
+     *  the command usage
+     */
+
+    if (objc < 3) {
+        wrong_arguments_message(interp, 1, objv);
+        return TCL_ERROR;
+    }
+
+    int i = 0;
+    while (++i < objc) {
+
+        argument = Tcl_GetString(objv[i]);
+
+        if (strcmp("-ident",argument) == 0) {
+
+            /* an end of argument list condition marks an incomplete command */
+            if (objc == i+1) {
+                wrong_arguments_message(interp, 1, objv);
                 return TCL_ERROR;
             }
-            continue;
+
+            ident = Tcl_GetString(objv[++i]);
+
+        } else if (strcmp("-facility",argument) == 0) {
+
+            if (objc == i+1) {
+                wrong_arguments_message(interp, 1, objv);
+                return TCL_ERROR;
+            }
+
+            facility_s = Tcl_GetString(objv[++i]);
+            if ((facility = convert_facility(interp, facility_s)) == ERROR) {
+                Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown facility specified.",-1));
+                return TCL_ERROR;
+            }
+
+        } else if (strcmp("-pid",argument) == 0) {
+
+            option = option | LOG_PID;
+
+        } else if (strcmp("-perror",argument) == 0) {
+
+            option = option | LOG_PERROR;
 
         } else {
+
+            /* checking whether we have extra non necessary arguments */
+
             if (objc > 2 + i) {
-                Tcl_WrongNumArgs(interp, 1, objv, "?-ident ident? ?-facility facility? priority message");
+                wrong_arguments_message(interp, 1, objv);
                 return TCL_ERROR;
             }
 
-            priority_s = Tcl_GetString(objv[i]); 
+            priority_s = argument; 
             if ((priority = convert_priority(interp, priority_s)) == ERROR) {
-                Tcl_SetObjResult(interp,Tcl_NewStringObj("Erroneous priority specified.",-1));
+                Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown priority specified.",-1));
                 return TCL_ERROR;
             }
 
-            message = Tcl_GetString(objv[i + 1]); 
+            message = Tcl_GetString(objv[++i]); 
             break;
         }
     }
 
-    openlog(ident, LOG_NDELAY, facility);
-    syslog(priority, "%s", message);
+    openlog(ident,option,facility);
+    syslog(priority,"%s",message);
     closelog();
 
     return TCL_OK;
@@ -119,17 +155,8 @@ static int convert_facility (Tcl_Interp *interp, const char *facility) {
                                    LOG_LOCAL0, LOG_LOCAL1, LOG_LOCAL2, LOG_LOCAL3, LOG_LOCAL4,
                                    LOG_LOCAL5, LOG_LOCAL6, LOG_LOCAL7 };
     int index;
-    Tcl_Obj *facility_o;
-
-    facility_o = Tcl_NewStringObj(facility, -1);
-
-    /* The Tcl object reference counter must be incremented, because it's decremented
-     * before returning, in the first place. Moreover Tcl_GetIndexFromObj could 
-     * legitimately increment and later decrement it
-     * before returning causing the object_o memory to be released. 
-     */
-
-    Tcl_IncrRefCount(facility_o);
+    Tcl_Obj *facility_o = Tcl_NewStringObj(facility, -1);
+    Tcl_IncrRefCount(facility_o); /* Let's protect its memory */
 
     if (Tcl_GetIndexFromObj(interp, facility_o, facilities, "facility", 0, &index) != TCL_OK) {
         Tcl_DecrRefCount(facility_o);
@@ -141,15 +168,12 @@ static int convert_facility (Tcl_Interp *interp, const char *facility) {
 }
 
 static int convert_priority (Tcl_Interp *interp, const char *priority) {
-    static char* priorities[] = {"emergency", "alert", "critical", "error", "warning", "notice", "info", "debug", NULL};
-    static int  priority_code[] = {LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR , LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG};
+    static char* priorities[]    = {"emergency", "alert", "critical", "error", "warning", "notice", "info", "debug", NULL};
+    static int   priority_code[] = {LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR , LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG};
     int index;
-    Tcl_Obj *priority_o;
-    priority_o = Tcl_NewStringObj(priority, -1);
 
-    /* see convert_facility */
-
-    Tcl_IncrRefCount(priority_o);
+    Tcl_Obj *priority_o = Tcl_NewStringObj(priority, -1);
+    Tcl_IncrRefCount(priority_o); /* see convert_facility */
 
     if (Tcl_GetIndexFromObj(interp, priority_o, priorities, "priority", 0, &index) != TCL_OK) {
         Tcl_DecrRefCount(priority_o);
