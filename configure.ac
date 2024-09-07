@@ -19,7 +19,7 @@ dnl	to configure the system for the local environment.
 # so that we create the export library with the dll.
 #-----------------------------------------------------------------------
 
-AC_INIT([syslog],[m4_esyscmd_s([cat VERSION])],[massimo.manghi@rivetweb.org],[tclsyslog])
+AC_INIT([syslog],[m4_esyscmd_s([cat VERSION])],[mxmanghi@apache.org],[tcl-syslog])
 
 #--------------------------------------------------------------------
 # Call TEA_INIT as the first TEA_ macro to set up initial vars.

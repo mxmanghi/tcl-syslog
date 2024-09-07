@@ -1,3 +1,7 @@
+07-09-2024 Massimo Manghi <mxmanghi@apache.org>
+    * unix/syslog.c: qualify as const char* string variables storing
+    pointers to Tcl_Obj string internal representations
+
 14-05-2024 Massimo Manghi <mxmanghi@apache.org>
 	* unix/syslog.c: Using real libc LOG_* symbols in order to determine
 	facility and severity, Fixed typo in facility code. Add new

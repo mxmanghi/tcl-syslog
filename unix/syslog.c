@@ -62,14 +62,14 @@ static void wrong_arguments_message (Tcl_Interp* interp,int c,Tcl_Obj *CONST86 o
 
 
 static int SyslogCmd(ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj *CONST86 objv[]) {
-    char* ident         = NULL;
-    char* facility_s    = NULL;
-    char* priority_s    = NULL;
-    char* message       = NULL;
-    int   facility      = LOG_USER;
-    int   priority      = LOG_DEBUG;
-    int   option        = LOG_NDELAY;
-    char* argument;
+    const char* ident       = NULL;
+    const char* facility_s  = NULL;
+    const char* priority_s  = NULL;
+    const char* message     = NULL;
+    int   facility          = LOG_USER;
+    int   priority          = LOG_DEBUG;
+    int   option            = LOG_NDELAY;
+    const char* argument    = NULL;
 
     /*  
      *  having less than 2 arguments to 'syslog' is wrong 
