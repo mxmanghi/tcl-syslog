@@ -1,6 +1,6 @@
 .\" .HS tcl-syslog tcl
 .\" .BS
-.TH "tcl-syslog" "n" "1.0" "Tcl-Extensions" ""
+.TH "tcl-syslog" "n" "@PACKAGE_VERSION@" "Tcl-Extensions" ""
 .SH "NAME"
 tcl\-syslog \- Syslog interface for Tcl
 .SH "SYNOPSIS"
