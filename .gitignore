@@ -1,0 +1,9 @@
+pkgIndex.tcl
+Makefile
+autom4te.cache/*
+config.log
+config.status
+configure
+configure~
+libsyslog1.2.4.so
+syslog.o
