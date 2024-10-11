@@ -59,7 +59,7 @@ the entity that logs the message, in the following categories/facilities:
     priority is another string dictated by syslog, that describes
     the severity of the message. In order of higher to lower severity, the
     possible strings are:  
-    .nf 
+
            Priority    Description
            emergency   system is unusable
            alert       action must be taken immediately
@@ -71,8 +71,9 @@ the entity that logs the message, in the following categories/facilities:
            debug       debug-level message
     
     This argument is mandatory.
-    .SH "EXAMPLE"
-    .nf 
+    
+#   EXAMPLE
+
     package require syslog
     
     syslog critical "Message 1"
@@ -97,10 +98,12 @@ the entity that logs the message, in the following categories/facilities:
      my_ident[7049]: Message 5.2
      my_ident[7049]: Message 5.3
     
-    .SH "AUTHOR"
+#   AUTHORS
+
     Alexandros Stergiakis sterg@kth.se  
     Massimo Manghi mxmanghi@apache.org
-    .SH "COPYRIGHT"
+
+#   COPYRIGHT
     
     Copyright (C) 2008  Alexandros Stergiakis  
     Copyright (C) 2024  Massimo Manghi
