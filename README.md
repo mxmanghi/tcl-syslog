@@ -71,7 +71,7 @@ the entity that logs the message, in the following categories/facilities:
            debug       debug-level message
     
     This argument is mandatory.
-    
+
 #   EXAMPLE
 
     package require syslog

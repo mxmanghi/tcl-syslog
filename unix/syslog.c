@@ -2,8 +2,8 @@
  *    syslog - Syslog loggin service for Tcl
  *    A Tcl interface to the POSIX syslog service.
  *
- *    Copyright (C) 2008  Alexandros Stergiakis
- *    Copyright 2024 Massimo Manghi <mxmanghi@apache.org>
+ *    Copyright (C) 2008 Alexandros Stergiakis
+ *    Copyright (C) 2024 Massimo Manghi <mxmanghi@apache.org>
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -34,11 +34,9 @@
  * Function Prototypes
  */
 
-static int SyslogCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]);
-
-static int convert_facility(Tcl_Interp *interp, const char *facility);
-
-static int convert_priority(Tcl_Interp *interp, const char *priority);
+static int SyslogCmd (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[]);
+static int convert_facility (Tcl_Interp *interp, const char *facility);
+static int convert_priority (Tcl_Interp *interp, const char *priority);
 
 /*
  * Function Bodies
@@ -50,7 +48,6 @@ int Syslog_Init(Tcl_Interp *interp) {
     }
 
     Tcl_CreateObjCommand(interp,PACKAGE_NAME,SyslogCmd,(ClientData) NULL,NULL);
-
     Tcl_PkgProvide(interp,PACKAGE_NAME,PACKAGE_VERSION);
     return TCL_OK;
 }
@@ -61,7 +58,7 @@ static void wrong_arguments_message (Tcl_Interp* interp,int c,Tcl_Obj *CONST86 o
 }
 
 
-static int SyslogCmd(ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj *CONST86 objv[]) {
+static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj *CONST86 objv[]) {
     const char* ident       = NULL;
     const char* facility_s  = NULL;
     const char* priority_s  = NULL;
@@ -133,7 +130,13 @@ static int SyslogCmd(ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj *
                 return TCL_ERROR;
             }
 
-            message = Tcl_GetString(objv[++i]); 
+            if (++i < objc) {
+                message = Tcl_GetString(objv[i]);
+            } else {
+                wrong_arguments_message(interp,1,objv);
+                Tcl_SetObjResult(interp,Tcl_NewStringObj("Missing syslog message argument",-1));
+                return TCL_ERROR;
+            }
             break;
         }
     }

@@ -1,6 +1,11 @@
+04-12-2024 Massimo Manghi <mxmanghi@apache.org>
+	* VERSION: new version 1.2.6
+	* unix/syslog.c: Fixing a segfault occurring when the final text string
+	is missing
+
 07-09-2024 Massimo Manghi <mxmanghi@apache.org>
-    * unix/syslog.c: qualify as const char* string variables storing
-    pointers to Tcl_Obj string internal representations
+	* unix/syslog.c: qualify as const char* string variables storing
+	pointers to Tcl_Obj string internal representations
 
 14-05-2024 Massimo Manghi <mxmanghi@apache.org>
 	* unix/syslog.c: Using real libc LOG_* symbols in order to determine
