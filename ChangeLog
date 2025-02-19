@@ -1,5 +1,11 @@
+19-02-2024 Massimo Manghi <mxmanghi@apache.org>
+	* tclconfig/tcl.m4,install-sh: new versions for TEA files
+	* configure.ac: now generating config.h and relying on this
+	file for most preprocessor symbols
+	* unix/syslog.c: including config.h
+
 04-12-2024 Massimo Manghi <mxmanghi@apache.org>
-	* VERSION: new version 1.2.6
+	* VERSION: new version 1.2.5.1
 	* unix/syslog.c: Fixing a segfault occurring when the final text string
 	is missing
 
@@ -30,9 +36,9 @@
 	* unix/syslog.c: adopting Tcl_SetObjResult instead of Tcl_SetResult
 
 31-03-2024 Massimo Manghi <massimo.manghi@rivetweb.org>
-	* README.md: basic information that are displayes on Github website
-	preparing to release this code as 1.2 even though there are no
-	new features, but to mark the fact it's a step forward
+	* README.md: basic information that are displayed on Github website.
+	Preparing to release this code as 1.2 even though there are no
+	new features, but to mark the fact it's beeb adopted
 	* NEWS: add news entry
 	* INSTALL: writing basic installation instructions
 	* -: Adopting tcl-syslog as the package needed

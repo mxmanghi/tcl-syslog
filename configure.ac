@@ -30,6 +30,7 @@ AC_INIT([syslog],[m4_esyscmd_s([cat VERSION])],[mxmanghi@apache.org],[tcl-syslog
 TEA_INIT()
 
 AC_CONFIG_AUX_DIR(tclconfig)
+AC_CONFIG_HEADERS([config.h])
 
 #--------------------------------------------------------------------
 # Load the tclConfig.sh file

@@ -27,6 +27,7 @@
 #include <string.h> // strcmp
 #include <syslog.h>
 #include <tcl.h>
+#include "config.h"
 
 #define ERROR -1
 
@@ -43,7 +44,7 @@ static int convert_priority (Tcl_Interp *interp, const char *priority);
  */
 
 int Syslog_Init(Tcl_Interp *interp) {
-    if (Tcl_InitStubs(interp, "8.1", 0) == NULL) {
+    if (Tcl_InitStubs(interp, "8.6-10", 0) == NULL) {
         return TCL_ERROR;
     }
 

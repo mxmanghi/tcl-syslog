@@ -9,3 +9,4 @@ configure~
 libsyslog1.2.4.so
 syslog.o
 .gdb_history
+config.h*
