@@ -1,0 +1,36 @@
+#!/usr/bin/env tclsh
+
+package require tcltest
+package require syslog
+
+# Generate unique message
+set testMessage "TCLTEST-SYSLOG-[clock seconds]"
+set syslogFile  "/var/log/syslog"
+
+# Setup: no specific action needed
+::tcltest::test syslog-1.0 {Log message should appear in syslog} -setup {
+    # Send the message
+    catch { syslog -pid -ident test_ident -facility local2 critical "syslog 1.0 test" }
+    # Give syslog some time to flush
+    after 1000
+} -body {
+    set cmd "grep -E --text -- \"TCLTEST-SYSLOG-\[0-9\]+\" $syslogFile"
+
+    if { [catch { set found [exec {*}$cmd] } e einfo] } {
+        set found 0
+
+        puts "Error in command '$cmd' ($e)"
+        puts $einfo
+
+    } else {
+        set found 1
+    }
+
+    set found
+} -cleanup {
+    # Nothing to clean, since syslog rotates naturally
+    # You *could* truncate or remove the line with sed, but avoid on production systems
+} -result 1
+
+
+::tcltest::cleanupTests

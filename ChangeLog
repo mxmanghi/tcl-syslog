@@ -1,3 +1,8 @@
+08-07-2025 Massimo Manghi <mxmanghi@apache.org>
+	* VERSION: new version 1.2.7
+	* tests/all.tcl, tests/syslog.test: TEA compliant test suite (only
+	one test implemented, more to be developed)
+
 19-02-2024 Massimo Manghi <mxmanghi@apache.org>
 	* tclconfig/tcl.m4,install-sh: new versions for TEA files
 	* configure.ac: now generating config.h and relying on this
