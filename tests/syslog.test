@@ -1,5 +1,7 @@
 #!/usr/bin/env tclsh
 
+set auto_path [concat "." $auto_path]
+
 package require tcltest
 package require syslog
 
@@ -10,13 +12,13 @@ set syslogFile  "/var/log/syslog"
 # Setup: no specific action needed
 ::tcltest::test syslog-1.0 {Log message should appear in syslog} -setup {
     # Send the message
-    catch { syslog -pid -ident test_ident -facility local2 critical "syslog 1.0 test" }
+    if {[catch { syslog -pid -ident test_ident -facility local2 critical $testMessage } e einfo]} {
+        puts "Error calling syslog: $e"
+    }
     # Give syslog some time to flush
     after 1000
 } -body {
-    set cmd "grep -E --text -- \"TCLTEST-SYSLOG-\[0-9\]+\" $syslogFile"
-
-    if { [catch { set found [exec {*}$cmd] } e einfo] } {
+    if { [catch { set found [exec grep --text -- $testMessage $syslogFile] } e einfo] } {
         set found 0
 
         puts "Error in command '$cmd' ($e)"
