@@ -6,7 +6,8 @@ config.log
 config.status
 configure
 configure~
-libsyslog1.2.4.so
+libsyslog*.so
+libtcl9syslog*.so
 syslog.o
 .gdb_history
 config.h*

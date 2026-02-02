@@ -15,6 +15,8 @@
 
 package require tcltest 2.2
 
+set auto_path [concat "." $auto_path]
+
 ::tcltest::configure -testdir [file dirname [file normalize [info script]]] {*}$argv
 ::tcltest::runAllTests
 
