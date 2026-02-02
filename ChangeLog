@@ -3,6 +3,7 @@
     should fix the occurence (though rare) of options definition loss
     * pkgIndex.tcl.in: Update with latest version of pkgIndex.tcl.in taken from
     the SampleExtension Tcl Core repository.
+    * Makefile.in: devolve to config.h most symbols definitions
 
 08-07-2025 Massimo Manghi <mxmanghi@apache.org>
 	* VERSION: new version 1.2.7

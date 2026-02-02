@@ -23,11 +23,14 @@
  * syslog.c
  *
  */
+/* Rivet config */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include <string.h> // strcmp
 #include <syslog.h>
 #include <tcl.h>
-#include "config.h"
 
 /* Definition suggested in
  *
@@ -73,7 +76,9 @@ typedef struct SyslogThreadStatus {
 } SyslogThreadStatus;
 
 static Tcl_ThreadDataKey syslogKey;
+#ifdef TCL_THREADS
 static Tcl_Mutex syslogMutex;
+#endif
 
 static SyslogThreadStatus *get_thread_status(void);
 static void reset_thread_status(SyslogThreadStatus *status);

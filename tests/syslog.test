@@ -19,15 +19,14 @@ set journalctl [auto_execok journalctl]
     # Give syslog some time to flush
     after 1000
 } -body {
-    if { [catch { set found [exec grep --text -- $testMessage $syslogFile] } e einfo] } {
-        set found 0
+    set found 0
 
-        puts "Error in command '$cmd' ($e)"
-        puts $einfo
     if { [file readable $syslogFile] } {
         if { [catch { exec grep -F -- $testMessage $syslogFile } e einfo] } {
-            puts "Error searching '$syslogFile' ($e)"
-            puts $einfo
+            if { [lindex $::errorCode 0] ne "CHILDSTATUS" || [lindex $::errorCode 2] != 1 } {
+                puts "Error searching '$syslogFile' ($e)"
+                puts $einfo
+            }
         } else {
             set found 1
         }

@@ -113,7 +113,7 @@ SHLIB_CFLAGS	= @SHLIB_CFLAGS@
 SHLIB_LD	= @SHLIB_LD@
 SHLIB_LD_LIBS	= @SHLIB_LD_LIBS@
 STLIB_LD	= @STLIB_LD@
-#TCL_DEFS	= @TCL_DEFS@
+TCL_DEFS	= @TCL_DEFS@
 TCL_BIN_DIR	= @TCL_BIN_DIR@
 TCL_SRC_DIR	= @TCL_SRC_DIR@
 #TK_BIN_DIR	= @TK_BIN_DIR@
@@ -151,12 +151,8 @@ INCLUDES	= @PKG_INCLUDES@ @TCL_INCLUDES@ -I.
 
 PKG_CFLAGS	= @PKG_CFLAGS@
 
-# TCL_DEFS is not strictly need here, but if you remove it, then you
-# must make sure that configure.ac checks for the necessary components
-# that your library may use.  TCL_DEFS can actually be a problem if
-# you do not compile with a similar machine setup as the Tcl core was
-# compiled with.
-#DEFS		= $(TCL_DEFS) @DEFS@ $(PKG_CFLAGS)
+# TCL_DEFS comes from Tcl's own build and can override package defines.
+# Keep our extension's defines in config.h and @DEFS@ only.
 DEFS		= @DEFS@ $(PKG_CFLAGS)
 
 # Move pkgIndex.tcl to 'BINARIES' var if it is generated in the Makefile
