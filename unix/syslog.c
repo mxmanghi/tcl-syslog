@@ -29,12 +29,27 @@
 #include <tcl.h>
 #include "config.h"
 
-#ifndef __cplusplus
-#ifndef __bool_true_false_are_defined
-typedef _Bool bool;
-#define true 1
-#define false 0
-#endif
+/* Definition suggested in
+ *
+ * https://www.gnu.org/software/autoconf/manual/autoconf-2.67/html_node/Particular-Headers.html
+ *
+ * in order to have a portable definition of the 'bool' data type
+ */
+
+#ifdef HAVE_STDBOOL_H
+# include <stdbool.h>
+#else
+# ifndef HAVE__BOOL
+#  ifdef __cplusplus
+typedef bool _Bool;
+#  else
+#   define _Bool signed char
+#  endif
+# endif
+# define bool _Bool
+# define false 0
+# define true 1
+# define __bool_true_false_are_defined 1
 #endif
 
 #define ERROR -1
