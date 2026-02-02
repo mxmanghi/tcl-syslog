@@ -1,3 +1,9 @@
+02-02-2026 Massimo Manghi <mxmanghi@apache.org>
+    * unix/syslog.c: storing state variable in a thread private structure. It
+    should fix the occurence (though rare) of options definition loss
+    * pkgIndex.tcl.in: Update with latest version of pkgIndex.tcl.in taken from
+    the SampleExtension Tcl Core repository.
+
 08-07-2025 Massimo Manghi <mxmanghi@apache.org>
 	* VERSION: new version 1.2.7
 	* tests/all.tcl, tests/syslog.test: TEA compliant test suite (only
