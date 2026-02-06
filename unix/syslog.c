@@ -58,7 +58,7 @@ typedef bool _Bool;
 # endif
 # define bool _Bool
 # define false 0
-# define true 1
+# define true  1
 # define __bool_true_false_are_defined 1
 #endif
 
@@ -76,8 +76,9 @@ typedef struct SyslogThreadStatus {
     char*   ident;
     char*   message;
     int     facility;
-    int     option;
     int     priority;
+    int     options;
+    int     options_changed;
     bool    opened;
     bool    initialized;
 #ifdef TCL_SYSLOG_DEBUG
@@ -101,7 +102,7 @@ static void SyslogInitStatus (SyslogThreadStatus *status)
 {
     status->ident        = NULL;
     status->facility     = LOG_USER;
-    status->option       = LOG_NDELAY;
+    status->options      = LOG_NDELAY;
     status->priority     = LOG_DEBUG;
     status->message      = NULL;
 
@@ -117,7 +118,7 @@ static SyslogThreadStatus* get_thread_status(void) {
     SyslogThreadStatus *status = (SyslogThreadStatus *) Tcl_GetThreadData(&syslogKey, sizeof(SyslogThreadStatus));
 
 #ifdef TCL_SYSLOG_DEBUG
-    if (status->magic != SYSLOG_MAGIC) {
+    if ((status->magic != SYSLOG_MAGIC) && status->initialized) {
         fprintf(stderr, "SyslogThreadStatus corrupted!\n");
     }
 
@@ -169,8 +170,9 @@ static void wrong_arguments_message (Tcl_Interp* interp,int c,Tcl_Obj *CONST86 o
 
 static int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[], SyslogThreadStatus* status) {
     const char *argument = NULL;
-    int         index    = 1;
+    int         index    = 0;
 
+    status->options_changed = false;
     while (index < objc) {
         argument = Tcl_GetString(objv[index]);
         if (strcmp("-ident", argument) == 0) {
@@ -189,7 +191,7 @@ static int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[], 
             status->ident = copy;
         } else if (strcmp("-facility", argument) == 0) {
             if (objc == index) {
-                wrong_arguments_message(interp, 1, objv);
+                wrong_arguments_message(interp,1,objv);
                 return TCL_ERROR;
             }
             const char *facility_s = Tcl_GetString(objv[++index]);
@@ -199,17 +201,19 @@ static int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[], 
                 return TCL_ERROR;
             }
             status->facility = f;
-        } else if (strcmp("-pid", argument) == 0) {
-            status->option = status->option | LOG_PID;
-        } else if (strcmp("-perror", argument) == 0) {
-            status->option = status->option | LOG_PERROR;
-        } else if (strcmp("-priority", argument) == 0) {
+        } else if (strcmp("-pid",argument) == 0) {
+            status->options = status->options | LOG_PID;
+            status->options_changed = true;
+        } else if (strcmp("-perror",argument) == 0) {
+            status->options = status->options | LOG_PERROR;
+            status->options_changed = true;
+        } else if (strcmp("-priority",argument) == 0) {
             if (objc == index) {
                 wrong_arguments_message(interp, 1, objv);
                 return TCL_ERROR;
             }
             const char *priority_s = Tcl_GetString(objv[++index]);
-            int p = convert_priority(interp, priority_s);
+            int p = convert_priority(interp,priority_s);
             if (p == ERROR) {
                 Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown priority specified.",-1));
                 return TCL_ERROR;
@@ -228,6 +232,7 @@ static int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[], 
         }
         index++;
     }
+
     return TCL_OK;
 }
 
@@ -236,7 +241,10 @@ static void SyslogOpen(SyslogThreadStatus* status)
     if (status->opened) {
         return;
     }
-    openlog(status->ident,status->option,status->facility);
+#ifdef TCL_SYSLOG_DEBUG
+    fprintf(stderr, "Calling openlog\n");
+#endif
+    openlog(status->ident,status->options,status->facility);
     status->opened = true;
 }
 
@@ -246,12 +254,15 @@ static void SyslogClose(SyslogThreadStatus* status)
         closelog();
         status->opened = false;
     }
+#ifdef TCL_SYSLOG_DEBUG
+    fprintf(stderr, "Calling closelog\n");
+#endif
     //reset_thread_status(status);
 }
 
 static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj *CONST86 objv[]) {
     SyslogThreadStatus* status  = get_thread_status();
-
+    const char* first_arg = Tcl_GetString(objv[1]);
     /*  
      *  having less than 2 arguments to 'syslog' is wrong 
      *  anyway and we print the usual error message about
@@ -261,16 +272,36 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
     if (objc < 2) {
         wrong_arguments_message(interp, 1, objv);
         return TCL_ERROR;
+    } else if (strcmp(first_arg,"close") == 0) {
+        if (objc != 2) {
+            wrong_arguments_message(interp, 1, objv);
+            return TCL_ERROR;
+        }
+        
+        SyslogClose(status);
+        return TCL_OK;
+    } else if (strcmp(first_arg,"open") == 0) {
+        if (parse_options(interp, objc-2, &objv[2], status) != TCL_OK) {
+            return TCL_ERROR;
+        }
+        SyslogOpen(status);
+        return TCL_OK;
+    } else if (strcmp(first_arg,"isopen") == 0) {
+        Tcl_SetObjResult(interp,Tcl_NewIntObj(status->opened));
+        return TCL_OK;
+    } else {
+        if (parse_options(interp, objc-1, &objv[1], status) != TCL_OK) {
+            return TCL_ERROR;
+        }
     }
 
-    if (parse_options(interp, objc, objv, status) != TCL_OK) {
-        return TCL_ERROR;
+    if (status->options_changed) {
+        SyslogClose(status);
+        SyslogOpen(status);
     }
 
     Tcl_MutexLock(&syslogMutex);
-    SyslogOpen(status);
-    syslog(status->priority,"%s",status->message);
-    SyslogClose(status);
+    syslog(LOG_MAKEPRI(status->facility,status->priority),"%s",status->message);
     Tcl_MutexUnlock(&syslogMutex);
 #ifdef TCL_SYSLOG_DEBUG
     (status->count)++;
