@@ -176,6 +176,29 @@ TEA_PROG_TCLSH
 #AC_SUBST(SAMPLE_VAR)
 
 #--------------------------------------------------------------------
+# Define config symbol to enable debug code
+# 
+#--------------------------------------------------------------------
+
+AC_DEFUN([ENABLE_DEBUG_SYMBOL],[
+    AC_ARG_ENABLE(debug_code,
+    [  --enable-debug-code enable compilation of debug code],
+    [ debug_code=$enable_debug_code ],
+    [ debug_code="no"]
+    )
+
+    AC_MSG_CHECKING([if we building also the debug code])
+    if test "$debug_code" = "yes"; then
+        AC_MSG_RESULT([yes])
+        AC_DEFINE(TCL_SYSLOG_DEBUG,1,[yes, we are building also the debug code])
+    else
+        AC_MSG_RESULT([no]);
+    fi
+])
+
+ENABLE_DEBUG_SYMBOL
+
+#--------------------------------------------------------------------
 # Specify files to substitute AC variables in. You may alternatively
 # have a special pkgIndex.tcl.in or other files which require
 # substituting the AC variables in. Include these here.

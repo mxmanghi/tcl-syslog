@@ -29,11 +29,10 @@
 #include "config.h"
 #endif
 
-#define __TCL_SYSLOG__DEBUG__
-#ifdef __TCL_SYSLOG__DEBUG__
+#ifdef TCL_SYSLOG_DEBUG
 #include <stdio.h>
 #include <inttypes.h>
-#define SYSLOG_MAGIC 0x5359534c  /* 'SYSL' */
+#define SYSLOG_MAGIC 0x5359534c 
 #endif
 
 #include <string.h>
@@ -81,7 +80,7 @@ typedef struct SyslogThreadStatus {
     int     priority;
     bool    opened;
     bool    initialized;
-#ifdef __TCL_SYSLOG__DEBUG__
+#ifdef TCL_SYSLOG_DEBUG
     uint32_t magic;
     int     count;
 #endif
@@ -108,7 +107,7 @@ static void SyslogInitStatus (SyslogThreadStatus *status)
 
     status->opened       = false;
     status->initialized  = true;
-#ifdef __TCL_SYSLOG__DEBUG__
+#ifdef TCL_SYSLOG_DEBUG
     status->magic        = SYSLOG_MAGIC;
     status->count        = 0;
 #endif
@@ -117,7 +116,7 @@ static void SyslogInitStatus (SyslogThreadStatus *status)
 static SyslogThreadStatus* get_thread_status(void) {
     SyslogThreadStatus *status = (SyslogThreadStatus *) Tcl_GetThreadData(&syslogKey, sizeof(SyslogThreadStatus));
 
-#ifdef __TCL_SYSLOG__DEBUG__
+#ifdef TCL_SYSLOG_DEBUG
     if (status->magic != SYSLOG_MAGIC) {
         fprintf(stderr, "SyslogThreadStatus corrupted!\n");
     }
@@ -273,7 +272,7 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
     syslog(status->priority,"%s",status->message);
     SyslogClose(status);
     Tcl_MutexUnlock(&syslogMutex);
-#ifdef __TCL_SYSLOG__DEBUG__
+#ifdef TCL_SYSLOG_DEBUG
     (status->count)++;
 #endif
     return TCL_OK;
