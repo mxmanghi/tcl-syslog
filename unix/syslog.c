@@ -129,7 +129,7 @@ static SyslogThreadStatus* get_thread_status(void) {
 
     if (!status->initialized) {
         SyslogInitStatus(status);
-    };
+    }
     return status;
 }
 
@@ -171,8 +171,8 @@ static void wrong_arguments_message (Tcl_Interp* interp,int c,Tcl_Obj *CONST86 o
 static int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[], SyslogThreadStatus* status) {
     const char *argument = NULL;
     int         index    = 0;
+    int         stored_opts = status->options;
 
-    status->options_changed = false;
     while (index < objc) {
         argument = Tcl_GetString(objv[index]);
         if (strcmp("-ident", argument) == 0) {
@@ -203,10 +203,8 @@ static int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[], 
             status->facility = f;
         } else if (strcmp("-pid",argument) == 0) {
             status->options = status->options | LOG_PID;
-            status->options_changed = true;
         } else if (strcmp("-perror",argument) == 0) {
             status->options = status->options | LOG_PERROR;
-            status->options_changed = true;
         } else if (strcmp("-priority",argument) == 0) {
             if (objc == index) {
                 wrong_arguments_message(interp, 1, objv);
@@ -231,6 +229,10 @@ static int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[], 
             break;
         }
         index++;
+    }
+
+    if (stored_opts != status->options) {
+        status->options_changed = true;
     }
 
     return TCL_OK;
@@ -263,6 +265,8 @@ static void SyslogClose(SyslogThreadStatus* status)
 static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj *CONST86 objv[]) {
     SyslogThreadStatus* status  = get_thread_status();
     const char* first_arg = Tcl_GetString(objv[1]);
+
+    status->options_changed = false;
     /*  
      *  having less than 2 arguments to 'syslog' is wrong 
      *  anyway and we print the usual error message about
