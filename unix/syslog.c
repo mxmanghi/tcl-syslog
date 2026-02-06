@@ -29,7 +29,7 @@
 #include "config.h"
 #endif
 
-#undef __TCL_SYSLOG__DEBUG__
+#define __TCL_SYSLOG__DEBUG__
 #ifdef __TCL_SYSLOG__DEBUG__
 #include <stdio.h>
 #include <inttypes.h>
@@ -83,6 +83,7 @@ typedef struct SyslogThreadStatus {
     bool    initialized;
 #ifdef __TCL_SYSLOG__DEBUG__
     uint32_t magic;
+    int     count;
 #endif
 } SyslogThreadStatus;
 
@@ -109,6 +110,7 @@ static void SyslogInitStatus (SyslogThreadStatus *status)
     status->initialized  = true;
 #ifdef __TCL_SYSLOG__DEBUG__
     status->magic        = SYSLOG_MAGIC;
+    status->count        = 0;
 #endif
 }
 
@@ -271,7 +273,9 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
     syslog(status->priority,"%s",status->message);
     SyslogClose(status);
     Tcl_MutexUnlock(&syslogMutex);
-
+#ifdef __TCL_SYSLOG__DEBUG__
+    (status->count)++;
+#endif
     return TCL_OK;
 }
 
