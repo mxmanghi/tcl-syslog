@@ -205,7 +205,7 @@ ENABLE_DEBUG_SYMBOL
 #--------------------------------------------------------------------
 
 AC_DEFINE([MODULE_SCOPE], [extern], [Define module scope visibility])
-AC_CONFIG_FILES([Makefile pkgIndex.tcl doc/tcl-syslog.n])
+AC_CONFIG_FILES([Makefile pkgIndex.tcl doc/tcl-syslog.n.md])
 #AC_CONFIG_FILES([sampleConfig.sh])
 
 #--------------------------------------------------------------------

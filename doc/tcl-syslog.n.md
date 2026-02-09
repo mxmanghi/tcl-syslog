@@ -1,6 +1,6 @@
 title: tcl-syslog
 section: n
-date: 2.0.0
+date: 1.3.0
 source: Tcl-Extensions
 
 # NAME
@@ -98,7 +98,7 @@ my_ident[7049]: Message 5.2
 my_ident[7049]: Message 5.3
 ```
 
-# AUTHOR
+# AUTHORS
 
 - Alexandros Stergiakis <sterg@kth.se>
 - Massimo Manghi <mxmanghi@apache.org>

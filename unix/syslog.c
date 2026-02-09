@@ -69,16 +69,16 @@ typedef bool _Bool;
  */
 
 static int SyslogCmd (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[]);
-static int convert_facility (Tcl_Interp *interp, const char *facility);
-static int convert_priority (Tcl_Interp *interp, const char *priority);
+static int convert_facility (Tcl_Interp *interp, const char *facility_s);
+static int convert_level    (Tcl_Interp *interp, const char *level_s);
 
 typedef struct SyslogThreadStatus {
     char*   ident;
     char*   message;
+    char*   format;
     int     facility;
-    int     priority;
+    int     level;
     int     options;
-    int     options_changed;
     bool    opened;
     bool    initialized;
 #ifdef TCL_SYSLOG_DEBUG
@@ -93,6 +93,8 @@ static Tcl_Mutex syslogMutex;
 #endif
 
 static SyslogThreadStatus *get_thread_status(void);
+static const char* g_default_format         = "%s";
+static int         g_opensyslog_options     = LOG_ODELAY;
 
 /*
  * Function Bodies
@@ -101,10 +103,11 @@ static SyslogThreadStatus *get_thread_status(void);
 static void SyslogInitStatus (SyslogThreadStatus *status)
 {
     status->ident        = NULL;
-    status->facility     = LOG_USER;
-    status->options      = LOG_NDELAY;
-    status->priority     = LOG_DEBUG;
     status->message      = NULL;
+    status->format       = (char *) g_default_format;
+    status->facility     = LOG_USER;
+    status->level        = LOG_DEBUG;
+    status->options      = LOG_ODELAY;
 
     status->opened       = false;
     status->initialized  = true;
@@ -165,16 +168,15 @@ int syslog_Init(Tcl_Interp *interp) {
 static void wrong_arguments_message (Tcl_Interp* interp,int c,Tcl_Obj *CONST86 objv[])
 {
     Tcl_WrongNumArgs(interp,c,objv,
-            "?open|close? ?-ident ident? ?-facility facility? ?-pid? ?-perror? ?-priority priority? ?priority message?");
+            "?open|close? ?-ident ident? ?-facility facility? ?-pid? ?-perror? ?-level level? message");
 }
 
-static int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[], SyslogThreadStatus* status) {
-    const char *argument = NULL;
-    int         index    = 0;
-    int         stored_opts = status->options;
+static int parse_open_options(Tcl_Interp *interp, int* obj_count, Tcl_Obj *CONST86 objv[], SyslogThreadStatus* status) {
+    const char *argument    = NULL;
+    int         index       = 1;
+    int         objc        = *obj_count;
 
     while (index < objc) {
-        argument = Tcl_GetString(objv[index]);
         if (strcmp("-ident", argument) == 0) {
             if (objc == index) {
                 wrong_arguments_message(interp, 1, objv);
@@ -189,6 +191,10 @@ static int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[], 
                 Tcl_Free(status->ident);
             }
             status->ident = copy;
+        } else if (strcmp("-nodelay", argument) == 0) {
+            status->options = status->options | LOG_NDELAY;
+        } else if (strcmp("-console", argument) == 0) {
+            status->options = status->options | LOG_CONS;
         } else if (strcmp("-facility", argument) == 0) {
             if (objc == index) {
                 wrong_arguments_message(interp,1,objv);
@@ -205,18 +211,56 @@ static int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[], 
             status->options = status->options | LOG_PID;
         } else if (strcmp("-perror",argument) == 0) {
             status->options = status->options | LOG_PERROR;
-        } else if (strcmp("-priority",argument) == 0) {
+        } else {
+            break;  /* we reached the end of the list of options '-opt1 -opt2 val -opt3.... */
+        }
+        index++;
+    }
+    *obj_count = index;
+    return TCL_OK;
+}
+
+static int parse_options(Tcl_Interp *interp, int* obj_count, Tcl_Obj *CONST86 objv[], SyslogThreadStatus* status) {
+    const char *argument = NULL;
+    int         index    = 1;
+    int         objc     = *obj_count;
+
+    if (status->format != g_default_format) {
+        Tcl_Free(status->format);
+        status->format = (char *) g_default_format;
+    }
+    while (index < objc) {
+        argument = Tcl_GetString(objv[index]);
+        if ((strcmp("-priority",argument) == 0) || 
+            (strcmp("-level",argument)    == 0)) {
+
             if (objc == index) {
                 wrong_arguments_message(interp, 1, objv);
                 return TCL_ERROR;
             }
-            const char *priority_s = Tcl_GetString(objv[++index]);
-            int p = convert_priority(interp,priority_s);
+
+            const char *level_s = Tcl_GetString(objv[++index]);
+            int p = convert_level(interp,level_s);
             if (p == ERROR) {
-                Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown priority specified.",-1));
+                Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown level specified.",-1));
                 return TCL_ERROR;
             }
-            status->priority = p;
+            status->level = p;
+        } else if (strcmp("-format",argument) == 0) {
+            if (objc == index) {
+                wrong_arguments_message(interp, 1, objv);
+                return TCL_ERROR;
+            }
+
+            const char *format_s = Tcl_GetString(objv[++index]);
+            size_t len = strlen(format_s);
+            char *copy = (char *) Tcl_Alloc(len + 1);
+            memcpy(copy,format_s,len + 1);
+            if (status->format != NULL) {
+                Tcl_Free(status->format);
+            }
+            status->format = copy;
+            break;
         } else if (index == objc - 1) {
             char* message = Tcl_GetString(objv[index]);
             size_t len = strlen(message);
@@ -227,14 +271,13 @@ static int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[], 
             }
             status->message = copy;
             break;
+        } else {
+            break;  /* we reach the end of the list of options */
         }
         index++;
     }
 
-    if (stored_opts != status->options) {
-        status->options_changed = true;
-    }
-
+    *obj_count = index;
     return TCL_OK;
 }
 
@@ -266,7 +309,6 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
     SyslogThreadStatus* status  = get_thread_status();
     const char* first_arg = Tcl_GetString(objv[1]);
 
-    status->options_changed = false;
     /*  
      *  having less than 2 arguments to 'syslog' is wrong 
      *  anyway and we print the usual error message about
@@ -285,7 +327,7 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
         SyslogClose(status);
         return TCL_OK;
     } else if (strcmp(first_arg,"open") == 0) {
-        if (parse_options(interp, objc-2, &objv[2], status) != TCL_OK) {
+        if (parse_open_options(interp, &objc, &objv[2], status) != TCL_OK) {
             return TCL_ERROR;
         }
         SyslogOpen(status);
@@ -294,19 +336,70 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
         Tcl_SetObjResult(interp,Tcl_NewIntObj(status->opened));
         return TCL_OK;
     } else {
-        if (parse_options(interp, objc-1, &objv[1], status) != TCL_OK) {
+        int remaining_obj_count = objc;
+        Tcl_Obj* level_o    = NULL;
+        Tcl_Obj* message_o  = NULL;
+
+        /* This CLI options are checked here for compatibility but it will be removed
+           in new releases requiring the socket to the syslog utility to be explicitly
+           reopened with new options */
+
+        if (parse_open_options(interp, &objc, &objv[1], status) != TCL_OK) {
             return TCL_ERROR;
+        }
+        if (parse_options(interp, &objc, &objv[1], status) != TCL_OK) {
+            return TCL_ERROR;
+        }
+
+        remaining_obj_count -= objc;
+        switch (remaining_obj_count) {
+            case 0:
+                break;
+            case 1:
+                message_o   = objv[objc];
+                break;
+            case 2:
+                level_o     = objv[objc];
+                message_o   = objv[objc+1];
+                break;
+            default:
+                break;
+        }
+
+        if (level_o != NULL) {
+            int level_code = convert_level(interp,Tcl_GetString(level_o)); 
+            if (level_code == ERROR) {
+                Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown level specified.",-1));
+                return TCL_ERROR;
+            }
+            status->level = level_code;
+        }
+        if (message_o != NULL) {
+            const char* message_s = Tcl_GetString(message_o);
+            size_t len = strlen(message_s);
+            char *copy = (char *) Tcl_Alloc(len + 1);
+            memcpy(copy,message_s,len + 1);
+
+            if (status->message != NULL) {
+                Tcl_Free(status->message);
+            }
+            status->message = copy;
         }
     }
 
-    if (status->options_changed) {
+#ifdef TCL_THREADS
+    Tcl_MutexLock(&syslogMutex);
+#endif
+
+    if (g_opensyslog_options != status->options) {
         SyslogClose(status);
         SyslogOpen(status);
     }
+    syslog(LOG_MAKEPRI(status->facility,status->level),status->format,status->message);
 
-    Tcl_MutexLock(&syslogMutex);
-    syslog(LOG_MAKEPRI(status->facility,status->priority),"%s",status->message);
+#ifdef TCL_THREADS
     Tcl_MutexUnlock(&syslogMutex);
+#endif
 #ifdef TCL_SYSLOG_DEBUG
     (status->count)++;
 #endif
@@ -335,19 +428,19 @@ static int convert_facility (Tcl_Interp *interp, const char *facility) {
     return facility_code[index];
 }
 
-static int convert_priority (Tcl_Interp *interp, const char *priority) {
-    static char* priorities[]    = {"emergency", "alert", "critical", "error", "warning", "notice", "info", "debug", NULL};
-    static int   priority_code[] = {LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR , LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG};
+static int convert_level (Tcl_Interp *interp, const char *level) {
+    static char* levels[]     = {"emergency", "alert", "critical", "error", "warning", "notice", "info", "debug", NULL};
+    static int   level_code[] = {LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR , LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG};
     int index;
 
-    Tcl_Obj *priority_o = Tcl_NewStringObj(priority, -1);
-    Tcl_IncrRefCount(priority_o); /* see convert_facility */
+    Tcl_Obj *level_o = Tcl_NewStringObj(level, -1);
+    Tcl_IncrRefCount(level_o); /* see convert_facility */
 
-    if (Tcl_GetIndexFromObj(interp, priority_o, priorities, "priority", 0, &index) != TCL_OK) {
-        Tcl_DecrRefCount(priority_o);
+    if (Tcl_GetIndexFromObj(interp, level_o, levels, "level", 0, &index) != TCL_OK) {
+        Tcl_DecrRefCount(level_o);
         return ERROR;
     }
-    Tcl_DecrRefCount(priority_o);
+    Tcl_DecrRefCount(level_o);
 
-    return priority_code[index];
+    return level_code[index];
 }
