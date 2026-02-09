@@ -177,6 +177,7 @@ static int parse_open_options(Tcl_Interp *interp, int* obj_count, Tcl_Obj *CONST
     int         objc        = *obj_count;
 
     while (index < objc) {
+        argument = Tcl_GetString(objv[index]);
         if (strcmp("-ident", argument) == 0) {
             if (objc == index) {
                 wrong_arguments_message(interp, 1, objv);
@@ -211,8 +212,6 @@ static int parse_open_options(Tcl_Interp *interp, int* obj_count, Tcl_Obj *CONST
             status->options = status->options | LOG_PID;
         } else if (strcmp("-perror",argument) == 0) {
             status->options = status->options | LOG_PERROR;
-        } else {
-            break;  /* we reached the end of the list of options '-opt1 -opt2 val -opt3.... */
         }
         index++;
     }
@@ -247,6 +246,7 @@ static int parse_options(Tcl_Interp *interp, int* obj_count, Tcl_Obj *CONST86 ob
             }
             status->level = p;
         } else if (strcmp("-format",argument) == 0) {
+
             if (objc == index) {
                 wrong_arguments_message(interp, 1, objv);
                 return TCL_ERROR;
@@ -261,18 +261,6 @@ static int parse_options(Tcl_Interp *interp, int* obj_count, Tcl_Obj *CONST86 ob
             }
             status->format = copy;
             break;
-        } else if (index == objc - 1) {
-            char* message = Tcl_GetString(objv[index]);
-            size_t len = strlen(message);
-            char *copy = (char *) Tcl_Alloc(len + 1);
-            memcpy(copy,message,len + 1);
-            if (status->message != NULL) {
-                Tcl_Free(status->message);
-            }
-            status->message = copy;
-            break;
-        } else {
-            break;  /* we reach the end of the list of options */
         }
         index++;
     }
@@ -307,18 +295,21 @@ static void SyslogClose(SyslogThreadStatus* status)
 
 static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj *CONST86 objv[]) {
     SyslogThreadStatus* status  = get_thread_status();
-    const char* first_arg = Tcl_GetString(objv[1]);
 
     /*  
      *  having less than 2 arguments to 'syslog' is wrong 
      *  anyway and we print the usual error message about
-     *  the command usage
+     *  the command usage. With two arguments objc = 3 because
+     *  argv[0] = 'syslog'
      */
 
-    if (objc < 2) {
+    if (objc < 3) {
         wrong_arguments_message(interp, 1, objv);
         return TCL_ERROR;
-    } else if (strcmp(first_arg,"close") == 0) {
+    }
+
+    const char* first_arg = Tcl_GetString(objv[1]);
+    if (strcmp(first_arg,"close") == 0) {
         if (objc != 2) {
             wrong_arguments_message(interp, 1, objv);
             return TCL_ERROR;
@@ -335,56 +326,57 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
     } else if (strcmp(first_arg,"isopen") == 0) {
         Tcl_SetObjResult(interp,Tcl_NewIntObj(status->opened));
         return TCL_OK;
-    } else {
-        int remaining_obj_count = objc;
-        Tcl_Obj* level_o    = NULL;
-        Tcl_Obj* message_o  = NULL;
+    } else if (strcmp(first_arg,"logmask") == 0) {
+        return TCL_OK;
+    }
 
-        /* This CLI options are checked here for compatibility but it will be removed
-           in new releases requiring the socket to the syslog utility to be explicitly
-           reopened with new options */
+    /* syslog is called to actually log a message. We check right away if the two mandatory
+     * arguments are defined and the level is correct
+     *
+     * syslog ?-opt1 -opt2....? level message
+     */
 
-        if (parse_open_options(interp, &objc, &objv[1], status) != TCL_OK) {
+    Tcl_Obj* level_o    = objv[objc-2];
+    Tcl_Obj* message_o  = objv[objc-1];
+
+    if (level_o != NULL) {
+        int level_code = convert_level(interp,Tcl_GetString(level_o));
+        if (level_code == ERROR) {
+            Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown level specified.",-1));
             return TCL_ERROR;
         }
-        if (parse_options(interp, &objc, &objv[1], status) != TCL_OK) {
-            return TCL_ERROR;
-        }
+        status->level = level_code;
+    }
+    if (message_o != NULL) {
+        const char* message_s = Tcl_GetString(message_o);
+        size_t len = strlen(message_s);
+        char *copy = (char *) Tcl_Alloc(len + 1);
+        memcpy(copy,message_s,len + 1);
 
-        remaining_obj_count -= objc;
-        switch (remaining_obj_count) {
-            case 0:
-                break;
-            case 1:
-                message_o   = objv[objc];
-                break;
-            case 2:
-                level_o     = objv[objc];
-                message_o   = objv[objc+1];
-                break;
-            default:
-                break;
+        if (status->message != NULL) {
+            Tcl_Free(status->message);
         }
+        status->message = copy;
+    }
+    
+    int n_arg_objects = objc - 2;
 
-        if (level_o != NULL) {
-            int level_code = convert_level(interp,Tcl_GetString(level_o)); 
-            if (level_code == ERROR) {
-                Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown level specified.",-1));
-                return TCL_ERROR;
-            }
-            status->level = level_code;
-        }
-        if (message_o != NULL) {
-            const char* message_s = Tcl_GetString(message_o);
-            size_t len = strlen(message_s);
-            char *copy = (char *) Tcl_Alloc(len + 1);
-            memcpy(copy,message_s,len + 1);
+    /* This CLI options are checked here for compatibility but it will be removed
+       in new releases requiring the socket to the syslog utility to be explicitly
+       reopened with new options */
 
-            if (status->message != NULL) {
-                Tcl_Free(status->message);
-            }
-            status->message = copy;
-        }
+    if (parse_open_options(interp, &n_arg_objects, objv, status) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    /* actually this call should returned the same objc value. We have two argument parsing
+     * functions in order to spare some cycle for the arguments that are not supposed to
+     * be processed when 'syslog open' is called.
+     */
+
+    n_arg_objects = objc - 2;
+    if (parse_options(interp, &n_arg_objects, objv, status) != TCL_OK) {
+        return TCL_ERROR;
     }
 
 #ifdef TCL_THREADS

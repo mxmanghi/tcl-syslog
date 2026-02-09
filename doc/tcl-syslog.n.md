@@ -12,7 +12,12 @@ tcl-syslog - Syslog interface for Tcl
 ```tcl
 package require syslog
 
-syslog ?-ident ident? ?-facility facility? ?-pid? ?-perror? priority message
+syslog open ?-ident ident? ?-facility? ?-pid? ?-perror? ?-console?
+syslog close
+
+syslog ?-ident ident? ?-facility facility? -pid? ?-perror? level message
+syslog ?-level level? ?-format message_format? message
+syslog message
 ```
 
 Returns: nothing
@@ -52,7 +57,7 @@ uucp        UUCP subsystem
 
 The default facility is `"user"`.
 
-*priority* is another string dictated by syslog, that describes the severity of the message. In order of higher to lower severity, the possible strings are:
+`-level' *level* describes the severity of the message. In order to control the message level possible arguments are:
 
 ```
 Priority    Description
@@ -66,7 +71,7 @@ info        informational message
 debug       debug-level message
 ```
 
-This argument is mandatory.
+`-priority` the priority argument is equivalent to `-level` and it's kept for compatibility. It will be removed in future releases
 
 # EXAMPLE
 
