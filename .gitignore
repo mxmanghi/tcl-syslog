@@ -11,3 +11,5 @@ libtcl9syslog*.so
 syslog.o
 .gdb_history
 config.h*
+tags
+*.swp

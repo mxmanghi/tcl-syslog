@@ -62,6 +62,12 @@ typedef bool _Bool;
 # define __bool_true_false_are_defined 1
 #endif
 
+#ifdef TCL_SYSLOG_DEBUG
+#define SYSLOG_DEBUG_MSG(s)  fprintf(stderr,"%s\n",s);
+#else
+#define SYSLOG_DEBUG_MSG(s)
+#endif
+
 #define ERROR -1
 
 /*
@@ -74,13 +80,14 @@ static int convert_level    (Tcl_Interp *interp, const char *level_s);
 
 typedef struct SyslogThreadStatus {
     char*   ident;
-    char*   message;
     char*   format;
     int     facility;
     int     level;
     int     options;
     bool    opened;
     bool    initialized;
+    int     open_changed;
+    char*   message;        /* volatile string pointer */
 #ifdef TCL_SYSLOG_DEBUG
     uint32_t magic;
     int     count;
@@ -94,7 +101,7 @@ static Tcl_Mutex syslogMutex;
 
 static SyslogThreadStatus *get_thread_status(void);
 static const char* g_default_format         = "%s";
-static int         g_opensyslog_options     = LOG_ODELAY;
+//static int       g_opensyslog_options     = LOG_ODELAY;
 
 /*
  * Function Bodies
@@ -103,14 +110,14 @@ static int         g_opensyslog_options     = LOG_ODELAY;
 static void SyslogInitStatus (SyslogThreadStatus *status)
 {
     status->ident        = NULL;
-    status->message      = NULL;
     status->format       = (char *) g_default_format;
     status->facility     = LOG_USER;
     status->level        = LOG_DEBUG;
     status->options      = LOG_ODELAY;
-
     status->opened       = false;
     status->initialized  = true;
+    status->open_changed = 0;
+    status->message      = NULL;
 #ifdef TCL_SYSLOG_DEBUG
     status->magic        = SYSLOG_MAGIC;
     status->count        = 0;
@@ -122,12 +129,14 @@ static SyslogThreadStatus* get_thread_status(void) {
 
 #ifdef TCL_SYSLOG_DEBUG
     if ((status->magic != SYSLOG_MAGIC) && status->initialized) {
-        fprintf(stderr, "SyslogThreadStatus corrupted!\n");
+        SYSLOG_DEBUG_MSG("SyslogThreadStatus corrupted!");
     }
 
     Tcl_ThreadId tid = Tcl_GetCurrentThread();
-    fprintf(stderr, "tid=%" PRIuPTR " key=%p status=%p initialized=%d\n",
+    char* thread_debug[1024];
+    sprintf(thread_debug, "tid=%" PRIuPTR " key=%p status=%p initialized=%d",
             (uintptr_t)tid, (void*)&syslogKey, (void*)status, (int)status->initialized);
+    SYSLOG_DEBUG_MSG(thread_debug)
 #endif
 
     if (!status->initialized) {
@@ -136,25 +145,13 @@ static SyslogThreadStatus* get_thread_status(void) {
     return status;
 }
 
-/*
-static void reset_thread_status(SyslogThreadStatus *status) {
-    if (status->ident != NULL) {
-        Tcl_Free(status->ident);
-    }
-    if (status->message != NULL) {
-        Tcl_Free(status->message);
-    }
-    SyslogInitStatus(status);
-}
-*/
-
 int Syslog_Init(Tcl_Interp *interp) {
     SyslogThreadStatus* status;
 
     if (Tcl_InitStubs(interp, "8.6-10", 0) == NULL) {
         return TCL_ERROR;
     }
-    status  = get_thread_status();
+    status = get_thread_status();
     SyslogInitStatus(status);
     Tcl_CreateObjCommand(interp,PACKAGE_NAME,SyslogCmd,(ClientData) NULL,NULL);
     Tcl_PkgProvide(interp,PACKAGE_NAME,PACKAGE_VERSION);
@@ -171,17 +168,22 @@ static void wrong_arguments_message (Tcl_Interp* interp,int c,Tcl_Obj *CONST86 o
             "?open|close? ?-ident ident? ?-facility facility? ?-pid? ?-perror? ?-level level? message");
 }
 
-static int parse_open_options(Tcl_Interp *interp, int* obj_count, Tcl_Obj *CONST86 objv[], SyslogThreadStatus* status) {
+/*
+ * parse_open_options
+ *
+ */
+
+static int parse_open_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[], SyslogThreadStatus* status) {
     const char *argument    = NULL;
-    int         index       = 1;
-    int         objc        = *obj_count;
+    int         index       = 0;
+    int         fchanged    = 0;
 
     while (index < objc) {
         argument = Tcl_GetString(objv[index]);
         if (strcmp("-ident", argument) == 0) {
             if (objc == index) {
                 wrong_arguments_message(interp, 1, objv);
-                return TCL_ERROR;
+                return -1;
             }
             const char* ident = Tcl_GetString(objv[++index]);
             size_t len = strlen(ident);
@@ -192,37 +194,42 @@ static int parse_open_options(Tcl_Interp *interp, int* obj_count, Tcl_Obj *CONST
                 Tcl_Free(status->ident);
             }
             status->ident = copy;
+            fchanged++;
         } else if (strcmp("-nodelay", argument) == 0) {
             status->options = status->options | LOG_NDELAY;
+            fchanged++;
         } else if (strcmp("-console", argument) == 0) {
             status->options = status->options | LOG_CONS;
+            fchanged++;
         } else if (strcmp("-facility", argument) == 0) {
             if (objc == index) {
                 wrong_arguments_message(interp,1,objv);
-                return TCL_ERROR;
+                return -1;
             }
             const char *facility_s = Tcl_GetString(objv[++index]);
             int f = convert_facility(interp, facility_s);
             if (f == ERROR) {
                 Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown facility specified.",-1));
-                return TCL_ERROR;
+                return -1;
             }
             status->facility = f;
+            fchanged++;
         } else if (strcmp("-pid",argument) == 0) {
             status->options = status->options | LOG_PID;
+            fchanged++;
         } else if (strcmp("-perror",argument) == 0) {
             status->options = status->options | LOG_PERROR;
+            fchanged++;
         }
         index++;
     }
-    *obj_count = index;
-    return TCL_OK;
+    return fchanged;
 }
 
-static int parse_options(Tcl_Interp *interp, int* obj_count, Tcl_Obj *CONST86 objv[], SyslogThreadStatus* status) {
+static int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[], SyslogThreadStatus* status) {
     const char *argument = NULL;
     int         index    = 1;
-    int         objc     = *obj_count;
+    int         fchanged = 0;
 
     if (status->format != g_default_format) {
         Tcl_Free(status->format);
@@ -235,21 +242,23 @@ static int parse_options(Tcl_Interp *interp, int* obj_count, Tcl_Obj *CONST86 ob
 
             if (objc == index) {
                 wrong_arguments_message(interp, 1, objv);
-                return TCL_ERROR;
+                return -1;
             }
 
             const char *level_s = Tcl_GetString(objv[++index]);
             int p = convert_level(interp,level_s);
             if (p == ERROR) {
                 Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown level specified.",-1));
-                return TCL_ERROR;
+                return -1;
             }
             status->level = p;
+            fchanged++;
+
         } else if (strcmp("-format",argument) == 0) {
 
             if (objc == index) {
                 wrong_arguments_message(interp, 1, objv);
-                return TCL_ERROR;
+                return -1;
             }
 
             const char *format_s = Tcl_GetString(objv[++index]);
@@ -260,13 +269,12 @@ static int parse_options(Tcl_Interp *interp, int* obj_count, Tcl_Obj *CONST86 ob
                 Tcl_Free(status->format);
             }
             status->format = copy;
-            break;
+            fchanged++;
         }
         index++;
     }
 
-    *obj_count = index;
-    return TCL_OK;
+    return fchanged;
 }
 
 static void SyslogOpen(SyslogThreadStatus* status)
@@ -274,9 +282,7 @@ static void SyslogOpen(SyslogThreadStatus* status)
     if (status->opened) {
         return;
     }
-#ifdef TCL_SYSLOG_DEBUG
-    fprintf(stderr, "Calling openlog\n");
-#endif
+    SYSLOG_DEBUG_MSG("Calling openlog")
     openlog(status->ident,status->options,status->facility);
     status->opened = true;
 }
@@ -287,10 +293,26 @@ static void SyslogClose(SyslogThreadStatus* status)
         closelog();
         status->opened = false;
     }
-#ifdef TCL_SYSLOG_DEBUG
-    fprintf(stderr, "Calling closelog\n");
+    SYSLOG_DEBUG_MSG("Calling closelog")
+}
+
+static inline void log_message (SyslogThreadStatus* status) {
+
+#ifdef TCL_THREADS
+    Tcl_MutexLock(&syslogMutex);
 #endif
-    //reset_thread_status(status);
+    if (status->open_changed > 0) {
+        SyslogClose(status);
+        SyslogOpen(status);
+    }
+    syslog(LOG_MAKEPRI(status->facility,status->level),status->format,status->message);
+#ifdef TCL_THREADS
+    Tcl_MutexUnlock(&syslogMutex);
+#endif
+#ifdef TCL_SYSLOG_DEBUG
+    (status->count)++;
+#endif
+
 }
 
 static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj *CONST86 objv[]) {
@@ -303,22 +325,28 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
      *  argv[0] = 'syslog'
      */
 
-    if (objc < 3) {
+    if (objc < 2) {
         wrong_arguments_message(interp, 1, objv);
         return TCL_ERROR;
     }
 
     const char* first_arg = Tcl_GetString(objv[1]);
-    if (strcmp(first_arg,"close") == 0) {
-        if (objc != 2) {
-            wrong_arguments_message(interp, 1, objv);
-            return TCL_ERROR;
+    if (objc == 2) {
+        if (strcmp(first_arg,"close") == 0) {
+            SyslogClose(status);
+        } else {
+
+        /* Handling an extreme case when every connection 
+         * and message parameters take their default values
+         */
+
+            status->message = first_arg;
+            status->open_changed = 0;
+            log_message(status);
         }
-        
-        SyslogClose(status);
         return TCL_OK;
     } else if (strcmp(first_arg,"open") == 0) {
-        if (parse_open_options(interp, &objc, &objv[2], status) != TCL_OK) {
+        if (parse_open_options(interp, objc-2, &objv[2], status) != TCL_OK) {
             return TCL_ERROR;
         }
         SyslogOpen(status);
@@ -347,25 +375,14 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
         }
         status->level = level_code;
     }
-    if (message_o != NULL) {
-        const char* message_s = Tcl_GetString(message_o);
-        size_t len = strlen(message_s);
-        char *copy = (char *) Tcl_Alloc(len + 1);
-        memcpy(copy,message_s,len + 1);
-
-        if (status->message != NULL) {
-            Tcl_Free(status->message);
-        }
-        status->message = copy;
-    }
-    
-    int n_arg_objects = objc - 2;
+    status->message = Tcl_GetString(message_o);    
 
     /* This CLI options are checked here for compatibility but it will be removed
        in new releases requiring the socket to the syslog utility to be explicitly
        reopened with new options */
 
-    if (parse_open_options(interp, &n_arg_objects, objv, status) != TCL_OK) {
+    status->open_changed = parse_open_options(interp,objc-1, &objv[1], status);
+    if (status->open_changed == -1) {
         return TCL_ERROR;
     }
 
@@ -374,27 +391,12 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
      * be processed when 'syslog open' is called.
      */
 
-    n_arg_objects = objc - 2;
-    if (parse_options(interp, &n_arg_objects, objv, status) != TCL_OK) {
+    if (parse_options(interp,objc-2, objv, status) == -1) {
         return TCL_ERROR;
     }
 
-#ifdef TCL_THREADS
-    Tcl_MutexLock(&syslogMutex);
-#endif
+    log_message(status);
 
-    if (g_opensyslog_options != status->options) {
-        SyslogClose(status);
-        SyslogOpen(status);
-    }
-    syslog(LOG_MAKEPRI(status->facility,status->level),status->format,status->message);
-
-#ifdef TCL_THREADS
-    Tcl_MutexUnlock(&syslogMutex);
-#endif
-#ifdef TCL_SYSLOG_DEBUG
-    (status->count)++;
-#endif
     return TCL_OK;
 }
 
