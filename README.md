@@ -97,12 +97,15 @@ the entity that logs the message, in the following categories/facilities:
      tclsh[7049]: Message 5.1
      my_ident[7049]: Message 5.2
      my_ident[7049]: Message 5.3
-    
+
+#   DOCUMENTATION
+
+    The package provides the *tcl-syslog* man page.
+
 #   AUTHORS
 
     Alexandros Stergiakis sterg@kth.se  
     Massimo Manghi mxmanghi@apache.org
-
 #   COPYRIGHT
     
     Copyright (C) 2008  Alexandros Stergiakis  

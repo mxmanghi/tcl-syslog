@@ -12,31 +12,38 @@ tcl-syslog - Syslog interface for Tcl
 ```tcl
 package require syslog
 
-syslog open ?-ident ident? ?-facility? ?-pid? ?-perror? ?-console?
-syslog close
+syslog::open ?-ident ident? ?-facility? ?-pid? ?-perror? ?-console?
+syslog::close
+syslog::log  ?-level level? ?-format message_format? message
 
 syslog ?-ident ident? ?-facility facility? -pid? ?-perror? level message
-syslog ?-level level? ?-format message_format? message
-syslog message
 ```
 
 Returns: nothing
 
 # DESCRIPTION
 
-This project provides a Tcl interface to the standard \*nix syslog service. It implements a Tcl package that exports the full functionality of the underlying syslog facility to the Tcl programming language. This includes local and remote logging.
+This project provides a Tcl interface to the standard *syslog* service.
+It implements a Tcl package that exports most of the functionalities of the
+underlying syslog facility to the Tcl programming language. This includes
+local and remote logging.
 
-Syslog is a standard for forwarding log messages in an IP network. It is also used to refer to the implementation of this standard and API, that supports both remote and local logging. It is typically used for computer system management and security auditing; usually to aggregate log messages in a central repository. It is standardized within the Syslog working group of the IETF.
+Syslog is a standard for forwarding log messages in an IP network. It is also
+used to refer to the implementation of this standard and API, that supports
+both remote and local logging. It is typically used for computer system
+management and security auditing; usually to aggregate log messages in a
+central repository. It is standardized within the Syslog working group of the IETF.
 
-Syslog is available in all POSIX compliant and POSIX-like Operating Systems.
+Syslog is available in all POSIX compliant and POSIX-like Operating Systems. The
+Tcl command *syslog* creates the namespace syslog that exports 3 commands
 
-`-ident` *ident* is an optional string argument that is used by syslog to differentiate between processes and log contexts. It is up to the user to specify any string here.
+- `-ident` *ident* is an optional string argument that is used by syslog to differentiate between processes and log contexts. It is up to the user to specify any string here. *This option causes the closelog to be called and the openlog
 
-`-pid` prints also the process pid in the log message.
+- `-pid` sets up syslog to print also the process pid in the log message. This options is most efficiently used as argument to 
 
-`-perror` prints the message also to stderr.
+- `-perror` prints the message also to stderr.
 
-`-facility` *facility* is an optional string dictated by syslog, and categorizes the entity that logs the message, in the following categories/facilities:
+- `-facility` *facility* is an optional string dictated by syslog, and categorizes the entity that logs the message, in the following categories/facilities:
 
 ```
 Facility    Description

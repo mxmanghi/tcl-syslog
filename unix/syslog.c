@@ -69,12 +69,17 @@ typedef bool _Bool;
 #endif
 
 #define ERROR -1
+#define SYSLOG_NS "::syslog"
 
 /*
  * Function Prototypes
  */
 
 static int  SyslogCmd (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[]);
+static int  SyslogOpenCmd (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[]);
+static int  SyslogCloseCmd (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[]);
+static int  SyslogLogCmd (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[]);
+
 static void SyslogInitGlobal (void);
 static int  convert_facility (Tcl_Interp *interp, const char *facility_s);
 static int  convert_level    (Tcl_Interp *interp, const char *level_s);
@@ -90,6 +95,7 @@ typedef struct SyslogThreadStatus {
     uint32_t magic;
     int     count;
 #endif
+    Tcl_Namespace*  namespace;
 } SyslogThreadStatus;
 
 typedef struct SyslogGlobalStatus {
@@ -99,12 +105,13 @@ typedef struct SyslogGlobalStatus {
     bool    opened;
 } SyslogGlobalStatus;
 
+
 static Tcl_ThreadDataKey syslogKey;
 #ifdef TCL_THREADS
 static Tcl_Mutex syslogMutex;
 #endif
 
-static SyslogGlobalStatus *g_status;
+static SyslogGlobalStatus *g_status = NULL;
 static SyslogThreadStatus *get_thread_status(void);
 static const char* g_default_format         = "%s";
 //static int       g_opensyslog_options     = LOG_ODELAY;
@@ -161,13 +168,31 @@ int Syslog_Init(Tcl_Interp *interp) {
     if (Tcl_InitStubs(interp, "8.6-10", 0) == NULL) {
         return TCL_ERROR;
     }
+
+#ifdef TCL_THREADS
+    Tcl_MutexLock(&syslogMutex);
+#endif
+    if (g_status == NULL) {
+        g_status = (SyslogGlobalStatus*) Tcl_Alloc(sizeof(SyslogGlobalStatus));
+        SyslogInitGlobal();
+    }
+#ifdef TCL_THREADS
+    Tcl_MutexUnlock(&syslogMutex);
+#endif
+
     status = get_thread_status();
     SyslogInitStatus(status);
 
-    g_status = (SyslogGlobalStatus*) Tcl_Alloc(sizeof(SyslogGlobalStatus));
+    /* Let's create the syslog namespace */
 
-    SyslogInitGlobal();
+    status->namespace = Tcl_CreateNamespace(interp,SYSLOG_NS,NULL,
+                                            (Tcl_NamespaceDeleteProc *)NULL);
+
+
     Tcl_CreateObjCommand(interp,PACKAGE_NAME,SyslogCmd,(ClientData) NULL,NULL);
+    Tcl_CreateObjCommand(interp,SYSLOG_NS"::open",SyslogOpenCmd,(ClientData) NULL,NULL);
+    Tcl_CreateObjCommand(interp,SYSLOG_NS"::close",SyslogCloseCmd,(ClientData) NULL,NULL);
+    Tcl_CreateObjCommand(interp,SYSLOG_NS"::log",SyslogLogCmd,(ClientData) NULL,NULL);
     Tcl_PkgProvide(interp,PACKAGE_NAME,PACKAGE_VERSION);
     return TCL_OK;
 }
@@ -300,7 +325,7 @@ static int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[], 
             size_t len = strlen(format_s);
             char *copy = (char *) Tcl_Alloc(len + 1);
             memcpy(copy,format_s,len + 1);
-            if (status->format != NULL) {
+            if ((status->format != NULL) && (status->format != g_default_format)) {
                 Tcl_Free(status->format);
             }
             status->format = copy;
@@ -334,9 +359,6 @@ static void SyslogClose(void)
 
 static inline void log_message (SyslogThreadStatus* status,int open_changed) {
 
-#ifdef TCL_THREADS
-    Tcl_MutexLock(&syslogMutex);
-#endif
     if (open_changed > 0) {
         SyslogClose();
         SyslogOpen();
@@ -346,13 +368,44 @@ static inline void log_message (SyslogThreadStatus* status,int open_changed) {
         facility = g_status->facility;
     }
     syslog(LOG_MAKEPRI(facility,status->level),status->format,status->message);
-#ifdef TCL_THREADS
-    Tcl_MutexUnlock(&syslogMutex);
-#endif
 #ifdef TCL_SYSLOG_DEBUG
     (status->count)++;
 #endif
 
+}
+
+static int SyslogOpenCmd (ClientData clientData,
+                          Tcl_Interp *interp,
+                          int objc,Tcl_Obj *CONST86 objv[]) {
+#ifdef TCL_THREADS
+    Tcl_MutexLock(&syslogMutex);
+#endif
+    if (parse_open_options(interp, objc-1, &objv[1],true) < -1) {
+        return TCL_ERROR;
+    }
+
+    SyslogClose();
+    SyslogOpen();
+
+#ifdef TCL_THREADS
+    Tcl_MutexUnlock(&syslogMutex);
+#endif
+    return TCL_OK;
+}
+
+static int SyslogCloseCmd (ClientData clientData,
+                          Tcl_Interp *interp,
+                          int objc,Tcl_Obj *CONST86 objv[]) {
+#ifdef TCL_THREADS
+    Tcl_MutexLock(&syslogMutex);
+#endif
+
+    SyslogClose();
+
+#ifdef TCL_THREADS
+    Tcl_MutexUnlock(&syslogMutex);
+#endif
+    return TCL_OK;
 }
 
 static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj *CONST86 objv[]) {
@@ -372,25 +425,13 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
 
     char* first_arg = Tcl_GetString(objv[1]);
     if (objc == 2) {
-        if (strcmp(first_arg,"close") == 0) {
-            SyslogClose();
-        } else {
 
         /* Handling an extreme case when every connection 
          * and message parameters take their default values
          */
-            status->message      = first_arg;
-            log_message(status,0);
-        }
-        return TCL_OK;
-    } else if (strcmp(first_arg,"open") == 0) {
-        if (parse_open_options(interp, objc-2, &objv[2],true) < -1) {
-            return TCL_ERROR;
-        }
-        if (g_status->opened) {
-            SyslogClose();
-        }
-        SyslogOpen();
+
+        status->message = first_arg;
+        log_message(status,0);
         return TCL_OK;
     } else if (strcmp(first_arg,"isopen") == 0) {
         Tcl_SetObjResult(interp,Tcl_NewIntObj(g_status->opened));
@@ -418,15 +459,6 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
     }
     status->message = Tcl_GetString(message_o);    
 
-    /* This CLI options are checked here for compatibility but it will be removed
-       in new releases requiring the socket to the syslog utility to be explicitly
-       reopened with new options */
-
-    status->open_changed = parse_open_options(interp,objc-1, &objv[1],false);
-    if (status->open_changed == -1) {
-        return TCL_ERROR;
-    }
-
     /* actually this call should returned the same objc value. We have two argument parsing
      * functions in order to spare some cycle for the arguments that are not supposed to
      * be processed when 'syslog open' is called.
@@ -436,9 +468,33 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
         return TCL_ERROR;
     }
 
-    log_message(status,status->open_changed);
+    /* This CLI options are checked here for compatibility but it will be removed
+       in new releases requiring the socket to the syslog utility to be explicitly
+       reopened with new options */
 
-    return TCL_OK;
+#ifdef TCL_THREADS
+    Tcl_MutexLock(&syslogMutex);
+#endif
+
+    int tcl_exit_code = TCL_OK;
+
+    status->open_changed = parse_open_options(interp,objc-1, &objv[1],false);
+    if (status->open_changed == -1) {
+        tcl_exit_code = TCL_ERROR;
+    } else {
+        log_message(status,status->open_changed);
+    }
+
+#ifdef TCL_THREADS
+    Tcl_MutexUnlock(&syslogMutex);
+#endif
+    return tcl_exit_code;
+}
+
+static int SyslogLogCmd (ClientData clientData,
+                          Tcl_Interp *interp,
+                          int objc,Tcl_Obj *CONST86 objv[]) {
+    return SyslogCmd(clientData,interp,objc,objv);
 }
 
 static int convert_facility (Tcl_Interp *interp, const char *facility) {
