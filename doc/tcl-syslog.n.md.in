@@ -13,8 +13,9 @@ tcl-syslog - Syslog interface for Tcl
 package require syslog
 
 syslog::open ?-ident ident? ?-facility? ?-pid? ?-perror? ?-console?
-syslog::close
 syslog::log  ?-level level? ?-format message_format? message
+syslog::isopen
+syslog::close
 
 syslog ?-ident ident? ?-facility facility? -pid? ?-perror? level message
 ```
@@ -23,19 +24,28 @@ Returns: nothing
 
 # DESCRIPTION
 
-This project provides a Tcl interface to the standard *syslog* service.
-It implements a Tcl package that exports most of the functionalities of the
-underlying syslog facility to the Tcl programming language. This includes
-local and remote logging.
-
-Syslog is a standard for forwarding log messages in an IP network. It is also
+Syslog is a standard for forwarding log messages to the local machine and to other
+logging services available on an TCL/IP network. It is also
 used to refer to the implementation of this standard and API, that supports
 both remote and local logging. It is typically used for computer system
 management and security auditing; usually to aggregate log messages in a
 central repository. It is standardized within the Syslog working group of the IETF.
+Syslog is available in all POSIX compliant and POSIX-like Operating Systems.
 
-Syslog is available in all POSIX compliant and POSIX-like Operating Systems. The
-Tcl command *syslog* creates the namespace syslog that exports 3 commands
+This package provides a Tcl interface to the standard *syslog* service.
+It creates a Tcl namespace with commands for opening and closing the 
+connection to the syslogd facility, sending messages to the syslog service
+and query the connection status
+
+It's supposed to provide local and remote logging, as these are syslogd capabilities.
+
+The current version provides also the global namespace command *syslog* for compatibility
+with earlier versions of the package but it's been revised to focus on resource 
+consumption, computational overheads and multi-threading programming
+
+# GLOBAL PER PROCESS OPTIONS
+
+The syslog facility is available to any process 
 
 - `-ident` *ident* is an optional string argument that is used by syslog to differentiate between processes and log contexts. It is up to the user to specify any string here. *This option causes the closelog to be called and the openlog
 
@@ -61,6 +71,8 @@ syslog      messages generated internally by syslogd(8)
 user        generic user-level messages
 uucp        UUCP subsystem
 ```
+
+# PER THREAD CONNECTION OPTIONS
 
 The default facility is `"user"`.
 
