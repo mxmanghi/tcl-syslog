@@ -80,11 +80,10 @@ static int SyslogCmd (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_O
 static int SyslogOpenCmd (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[]);
 static int SyslogCloseCmd (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[]);
 static int SyslogLogmaskCmd (ClientData clientData, Tcl_Interp *interp, int objc,Tcl_Obj *CONST86 objv[]);
+static int SyslogConfigurationCmd (ClientData clientData, Tcl_Interp *interp, int objc,Tcl_Obj *CONST86 objv[]);
 static int SyslogLogCmd (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[]);
 
 static void SyslogInitGlobal (void);
-static int  convert_facility (Tcl_Interp *interp, const char *facility_s);
-static int  convert_level    (Tcl_Interp *interp, const char *level_s);
 
 typedef struct SyslogThreadStatus {
     char*   format;
@@ -106,15 +105,24 @@ typedef struct SyslogGlobalStatus {
     bool    opened;
 } SyslogGlobalStatus;
 
-
 static Tcl_ThreadDataKey syslogKey;
+
 #ifdef TCL_THREADS
+
 static Tcl_Mutex syslogMutex;
 #define SYSLOG_MUTEX_LOCK   Tcl_MutexLock(&syslogMutex);
 #define SYSLOG_MUTEX_UNLOCK Tcl_MutexUnlock(&syslogMutex);
+#define SYSLOG_ATOMIC(varname,sourcename) \
+Tcl_MutexLock(&syslogMutex); \
+varname = sourcename; \
+Tcl_MutexUnlock(&syslogMutex);
+
 #else
+
 #define SYSLOG_MUTEX_LOCK   
-#define SYSLOG_MUTEX_UNLOCK 
+#define SYSLOG_MUTEX_UNLOCK
+#define SYSLOG_ATOMIC(varname,sourcename) varname = sourcename;
+
 #endif
 
 static SyslogGlobalStatus *g_status = NULL;
@@ -136,7 +144,7 @@ static void SyslogInitGlobal (void) {
 static void SyslogInitStatus (SyslogThreadStatus *status)
 {
     status->format       = (char *) g_default_format;
-    status->level        = LOG_DEBUG;
+    status->level        = LOG_INFO;
     status->facility     = 0;
     status->initialized  = true;
     status->message      = NULL;
@@ -192,6 +200,7 @@ int Syslog_Init(Tcl_Interp *interp) {
     Tcl_CreateObjCommand(interp,SYSLOG_NS"::isopen",SyslogOpenCmd,(ClientData) "isopen",NULL);
     Tcl_CreateObjCommand(interp,SYSLOG_NS"::logmask",SyslogLogmaskCmd,(ClientData) NULL,NULL);
     Tcl_CreateObjCommand(interp,SYSLOG_NS"::close",SyslogCloseCmd,(ClientData) NULL,NULL);
+    Tcl_CreateObjCommand(interp,SYSLOG_NS"::cget",SyslogConfigurationCmd,(ClientData) "cget",NULL);
     Tcl_CreateObjCommand(interp,SYSLOG_NS"::log",SyslogLogCmd,(ClientData) NULL,NULL);
     Tcl_PkgProvide(interp,PACKAGE_NAME,PACKAGE_VERSION);
     return TCL_OK;
@@ -201,10 +210,98 @@ int syslog_Init(Tcl_Interp *interp) {
     return Syslog_Init(interp);
 }
 
+/* Facility and level handling */
+
+static int convert_facility (Tcl_Interp *interp, const char *facility) {
+    static char* facilities[] = { "kern", "user", "mail", "daemon", "auth", "syslog",
+                                  "lpr", "news", "uucp", "cron", "authpriv", "ftp",
+                                  "local0", "local1", "local2", "local3", "local4",
+                                  "local5", "local6", "local7", NULL };
+    static int facility_code[] = { LOG_KERN, LOG_USER, LOG_MAIL, LOG_DAEMON, LOG_AUTH, LOG_SYSLOG,
+                                   LOG_LPR, LOG_NEWS, LOG_UUCP, LOG_CRON, LOG_AUTHPRIV, LOG_FTP,
+                                   LOG_LOCAL0, LOG_LOCAL1, LOG_LOCAL2, LOG_LOCAL3, LOG_LOCAL4,
+                                   LOG_LOCAL5, LOG_LOCAL6, LOG_LOCAL7 };
+    int index;
+    Tcl_Obj *facility_o = Tcl_NewStringObj(facility, -1);
+    Tcl_IncrRefCount(facility_o); /* Let's protect its memory */
+
+    if (Tcl_GetIndexFromObj(interp, facility_o, facilities, "facility", 0, &index) != TCL_OK) {
+        Tcl_DecrRefCount(facility_o);
+        return ERROR;
+    }
+    Tcl_DecrRefCount(facility_o);
+
+    return facility_code[index];
+}
+
+static int convert_level (Tcl_Interp *interp, const char *level) {
+    static char* levels[]     = {"emergency", "alert", "critical", "error", "warning", "notice", "info", "debug", NULL};
+    static int   level_code[] = {LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR , LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG};
+    int index;
+
+    Tcl_Obj *level_o = Tcl_NewStringObj(level, -1);
+    Tcl_IncrRefCount(level_o); /* see convert_facility */
+
+    if (Tcl_GetIndexFromObj(interp, level_o, levels, "level", 0, &index) != TCL_OK) {
+        Tcl_DecrRefCount(level_o);
+        return ERROR;
+    }
+    Tcl_DecrRefCount(level_o);
+
+    return level_code[index];
+}
+
+/*
+ * Functions handing errors 
+ */
+
 static void wrong_arguments_message (Tcl_Interp* interp,int c,Tcl_Obj *CONST86 objv[])
 {
     Tcl_WrongNumArgs(interp,c,objv,
             "?open|close? ?-ident ident? ?-facility facility? ?-pid? ?-perror? ?-level level? message");
+}
+
+static void missing_option_value (Tcl_Interp* interp,char* cmd,Tcl_Obj* option)
+{
+    Tcl_Obj* error_code_list = Tcl_NewObj();
+    Tcl_IncrRefCount(error_code_list);
+
+    Tcl_ListObjAppendElement(interp, error_code_list, Tcl_NewStringObj("wrong_argument_value", -1));
+    Tcl_ListObjAppendElement(interp, error_code_list, option);
+    Tcl_SetObjErrorCode(interp, error_code_list);
+
+    Tcl_Obj* error_message = Tcl_NewStringObj("Missing option value for option '",-1);
+    Tcl_IncrRefCount(error_message);
+
+    Tcl_AppendObjToObj(error_message,option);
+    Tcl_AppendStringsToObj(error_message,"' in ",cmd,NULL);
+
+    Tcl_SetObjResult(interp,error_message);
+    Tcl_DecrRefCount(error_message);
+
+    Tcl_Obj* info_message = Tcl_NewStringObj("\n    (missing option value condition detected while parsing command ",-1);
+    Tcl_IncrRefCount(info_message);
+    Tcl_AppendStringsToObj(info_message,cmd,")",NULL);
+    Tcl_AppendObjToErrorInfo(interp, info_message);
+
+    Tcl_DecrRefCount(info_message);
+    Tcl_DecrRefCount(error_code_list);
+}
+
+
+static void wrong_command_option(Tcl_Interp *interp, int objc, Tcl_Obj *const objv[])
+{
+    Tcl_Obj *error_code_list = Tcl_NewObj();
+    Tcl_IncrRefCount(error_code_list);
+
+    Tcl_ListObjAppendElement(interp, error_code_list, Tcl_NewStringObj("wrong_arguments", -1));
+    Tcl_ListObjAppendElement(interp, error_code_list, Tcl_NewListObj(objc, objv)); 
+    Tcl_SetObjErrorCode(interp, error_code_list);
+
+    Tcl_SetObjResult(interp, Tcl_NewStringObj("Invalid ::syslog::open option", -1));
+    Tcl_AddErrorInfo(interp, "\n    (unrecognized option detected while parsing ::syslog::open arguments)");
+
+    Tcl_DecrRefCount(error_code_list);
 }
 
 /*
@@ -212,7 +309,8 @@ static void wrong_arguments_message (Tcl_Interp* interp,int c,Tcl_Obj *CONST86 o
  *
  */
 
-static int parse_open_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],bool open_cmd,int* last_option_p) {
+static int parse_open_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],
+                              bool open_cmd,int* last_option_p,bool *unhandled_opt,char *tcl_command) {
     const char *argument    = NULL;
     int         index       = 1;
     int         fchanged    = 0;
@@ -221,9 +319,9 @@ static int parse_open_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 obj
     while (index < objc) {
         argument = Tcl_GetString(objv[index]);
         if (strcmp("-ident", argument) == 0) {
-            if (objc == index) {
-                wrong_arguments_message(interp, 1, objv);
-                return -1;
+            if (index == objc-1) {
+                missing_option_value(interp,tcl_command,objv[index]);
+                return ERROR;
             }
             const char* ident = Tcl_GetString(objv[++index]);
             size_t len = strlen(ident);
@@ -252,14 +350,14 @@ static int parse_open_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 obj
              */
 
             if (objc == index) {
-                wrong_arguments_message(interp,1,objv);
-                return -1;
+                missing_option_value(interp,tcl_command,objv[index]);
+                return ERROR;
             }
             const char *facility_s = Tcl_GetString(objv[++index]);
             int f = convert_facility(interp, facility_s);
             if (f == ERROR) {
                 Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown facility specified.",-1));
-                return -1;
+                return ERROR;
             }
             g_status->facility = f;
             fchanged++;
@@ -272,6 +370,11 @@ static int parse_open_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 obj
             g_status->options = g_status->options | LOG_PERROR;
             fchanged++;
             last_option_index = index;
+        } else if (argument[0] == '-') {
+            *unhandled_opt = true;
+        } else {
+            wrong_arguments_message(interp, 1, objv);
+            return ERROR;
         }
         index++;
     }
@@ -279,7 +382,9 @@ static int parse_open_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 obj
     return fchanged;
 }
 
-static int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[], SyslogThreadStatus* status,int* last_option_p) {
+static int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],
+                         SyslogThreadStatus* status,int* last_option_p,bool *unhandled_opt,
+                         char* tcl_command) {
     const char *argument = NULL;
     int         index    = 1;
     int         fchanged = 0;
@@ -295,40 +400,43 @@ static int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[], 
         if ((strcmp("-priority",argument) == 0) || 
             (strcmp("-level",argument)    == 0)) {
 
-            if (objc == index) {
-                wrong_arguments_message(interp, 1, objv);
-                return -1;
+            if (index == objc-1) {
+                missing_option_value(interp,tcl_command,objv[index]);
+                return ERROR;
             }
 
             const char *level_s = Tcl_GetString(objv[++index]);
             int p = convert_level(interp,level_s);
             if (p == ERROR) {
                 Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown level specified.",-1));
-                return -1;
+                return ERROR;
             }
             status->level = p;
             fchanged++;
             last_option_index = index;
+
         } else if (strcmp("-facility",argument) == 0) {
 
-            if (objc == index) {
-                wrong_arguments_message(interp,1,objv);
-                return -1;
+            if (index == objc-1) {
+                missing_option_value(interp,tcl_command,objv[index]);
+                return ERROR;
             }
+
             const char *facility_s = Tcl_GetString(objv[++index]);
             int f = convert_facility(interp, facility_s);
             if (f == ERROR) {
                 Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown facility specified.",-1));
-                return -1;
+                return ERROR;
             }
             status->facility = f;
             fchanged++;
             last_option_index = index;
+
         } else if (strcmp("-format",argument) == 0) {
 
-            if (objc == index) {
-                wrong_arguments_message(interp, 1, objv);
-                return -1;
+            if (index == objc-1) {
+                missing_option_value(interp,tcl_command,objv[index]);
+                return ERROR;
             }
 
             const char *format_s = Tcl_GetString(objv[++index]);
@@ -341,6 +449,12 @@ static int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[], 
             status->format = copy;
             fchanged++;
             last_option_index = index;
+
+        } else if (argument[0] == '-') {
+            *unhandled_opt = true;
+        } else {
+            wrong_arguments_message(interp, 1, objv);
+            return ERROR;
         }
         index++;
     }
@@ -398,10 +512,12 @@ static int SyslogOpenCmd (ClientData clientData,
     char* cdata = (char *) clientData;
     if (cdata != NULL) {
         if (strcmp(cdata,"isopen") == 0) {
-            SYSLOG_MUTEX_LOCK
-            Tcl_SetObjResult(interp,Tcl_NewIntObj(g_status->opened));
-            SYSLOG_MUTEX_UNLOCK
+            bool opened;
+
+            SYSLOG_ATOMIC(opened,g_status->opened)
+            Tcl_SetObjResult(interp,Tcl_NewIntObj(opened));
             return TCL_OK;
+
         } else {
             Tcl_SetErrorCode(interp,"internal_error",cdata,(char *)NULL);
             Tcl_AddErrorInfo(interp,"Internal error: invalid command argument");
@@ -409,23 +525,35 @@ static int SyslogOpenCmd (ClientData clientData,
         }
     }
 
-    SYSLOG_MUTEX_LOCK
     int last_opt_index;
-    if (parse_open_options(interp,objc,objv,true,&last_opt_index) < -1) {
-        return TCL_ERROR;
-    }
+    bool unhandled_open_opt = false;
+    int  tcl_exit_status = TCL_OK;
 
-    if (last_opt_index < objc) {
-        Tcl_WrongNumArgs(interp,objc,objv,
-            "open ?-ident ident? ?-facility facility? ?-pid? ?-perror? ?-nodelay? ?-console?");
-        return TCL_ERROR;
-    }
+    SYSLOG_MUTEX_LOCK
+    if (parse_open_options(interp,objc,objv,true,&last_opt_index,&unhandled_open_opt,"::syslog::open") == ERROR) {
+        tcl_exit_status = TCL_ERROR;
+        if (unhandled_open_opt) {
+            wrong_command_option(interp,objc,objv);
+        }
+    } else {
 
-    SyslogClose();
-    SyslogOpen();
+        /* 
+         * Il comando ::syslog::open ammette solo options e quindi last_opt_index
+         * deve essere necessariamente == objc - 1
+         */
+
+        if (last_opt_index != objc-1) {
+            Tcl_WrongNumArgs(interp,objc,objv,
+                "open ?-ident ident? ?-facility facility? ?-pid? ?-perror? ?-nodelay? ?-console?");
+            return TCL_ERROR;
+        }
+
+        SyslogClose();
+        SyslogOpen();
+    }
 
     SYSLOG_MUTEX_UNLOCK
-    return TCL_OK;
+    return tcl_exit_status;
 }
 
 static int SyslogCloseCmd (ClientData clientData,
@@ -436,6 +564,12 @@ static int SyslogCloseCmd (ClientData clientData,
     SyslogClose();
 
     SYSLOG_MUTEX_UNLOCK
+    return TCL_OK;
+}
+
+static int SyslogConfigurationCmd (ClientData clientData,
+                                    Tcl_Interp *interp,
+                                    int objc,Tcl_Obj *CONST86 objv[]) {
     return TCL_OK;
 }
 
@@ -454,11 +588,14 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
     }
 
     /*
-     *  syslog is called to actually log a message. 
+     * syslog is called to actually log a message. This command provides compatibility
+     * with previous versions of syslog. We fail with unrecognized option error when both
+     * parse_options (log command specific option
      */
 
     int last_arg_opts = 0;
-    if (parse_options(interp,objc, objv, status,&last_arg_opts) == -1) {
+    bool unhandled_log_opt = false;
+    if (parse_options(interp,objc, objv, status,&last_arg_opts, &unhandled_log_opt,"syslog") == -1) {
         return TCL_ERROR;
     }
 
@@ -470,7 +607,14 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
 
     int tcl_exit_code = TCL_OK;
     int last_open_opt = 0;
-    status->open_changed = parse_open_options(interp,objc,objv,false,&last_open_opt);
+    bool unhandled_global_opt = false;
+    status->open_changed = parse_open_options(interp,objc,objv,false,&last_open_opt,&unhandled_global_opt,"syslog");
+
+    if (unhandled_log_opt && unhandled_global_opt) {
+        wrong_command_option(interp,objc,objv);
+        return TCL_ERROR;
+    }
+
     if (status->open_changed == -1) {
         tcl_exit_code = TCL_ERROR;
     } else {
@@ -513,7 +657,11 @@ static int SyslogLogCmd (ClientData clientData,
     }
 
     int last_arg_opts = 0;
-    if (parse_options(interp,objc, objv, status,&last_arg_opts) == -1) {
+    bool unhandled_log_opt = false;
+    if (parse_options(interp,objc, objv, status,&last_arg_opts, &unhandled_log_opt,"::syslog::log") == -1) {
+        return TCL_ERROR;
+    } else if (unhandled_log_opt) {
+        wrong_command_option(interp,objc,objv);
         return TCL_ERROR;
     }
 
@@ -538,41 +686,3 @@ static int SyslogLogCmd (ClientData clientData,
     return TCL_OK;
 }
 
-static int convert_facility (Tcl_Interp *interp, const char *facility) {
-    static char* facilities[] = { "kern", "user", "mail", "daemon", "auth", "syslog",
-                                  "lpr", "news", "uucp", "cron", "authpriv", "ftp",
-                                  "local0", "local1", "local2", "local3", "local4",
-                                  "local5", "local6", "local7", NULL };
-    static int facility_code[] = { LOG_KERN, LOG_USER, LOG_MAIL, LOG_DAEMON, LOG_AUTH, LOG_SYSLOG,
-                                   LOG_LPR, LOG_NEWS, LOG_UUCP, LOG_CRON, LOG_AUTHPRIV, LOG_FTP,
-                                   LOG_LOCAL0, LOG_LOCAL1, LOG_LOCAL2, LOG_LOCAL3, LOG_LOCAL4,
-                                   LOG_LOCAL5, LOG_LOCAL6, LOG_LOCAL7 };
-    int index;
-    Tcl_Obj *facility_o = Tcl_NewStringObj(facility, -1);
-    Tcl_IncrRefCount(facility_o); /* Let's protect its memory */
-
-    if (Tcl_GetIndexFromObj(interp, facility_o, facilities, "facility", 0, &index) != TCL_OK) {
-        Tcl_DecrRefCount(facility_o);
-        return ERROR;
-    }
-    Tcl_DecrRefCount(facility_o);
-
-    return facility_code[index];
-}
-
-static int convert_level (Tcl_Interp *interp, const char *level) {
-    static char* levels[]     = {"emergency", "alert", "critical", "error", "warning", "notice", "info", "debug", NULL};
-    static int   level_code[] = {LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR , LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG};
-    int index;
-
-    Tcl_Obj *level_o = Tcl_NewStringObj(level, -1);
-    Tcl_IncrRefCount(level_o); /* see convert_facility */
-
-    if (Tcl_GetIndexFromObj(interp, level_o, levels, "level", 0, &index) != TCL_OK) {
-        Tcl_DecrRefCount(level_o);
-        return ERROR;
-    }
-    Tcl_DecrRefCount(level_o);
-
-    return level_code[index];
-}
