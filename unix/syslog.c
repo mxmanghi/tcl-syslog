@@ -110,6 +110,11 @@ typedef struct SyslogGlobalStatus {
 static Tcl_ThreadDataKey syslogKey;
 #ifdef TCL_THREADS
 static Tcl_Mutex syslogMutex;
+#define SYSLOG_MUTEX_LOCK   Tcl_MutexLock(&syslogMutex);
+#define SYSLOG_MUTEX_UNLOCK Tcl_MutexUnlock(&syslogMutex);
+#else
+#define SYSLOG_MUTEX_LOCK   
+#define SYSLOG_MUTEX_UNLOCK 
 #endif
 
 static SyslogGlobalStatus *g_status = NULL;
@@ -170,16 +175,12 @@ int Syslog_Init(Tcl_Interp *interp) {
         return TCL_ERROR;
     }
 
-#ifdef TCL_THREADS
-    Tcl_MutexLock(&syslogMutex);
-#endif
+    SYSLOG_MUTEX_LOCK
     if (g_status == NULL) {
         g_status = (SyslogGlobalStatus*) Tcl_Alloc(sizeof(SyslogGlobalStatus));
         SyslogInitGlobal();
     }
-#ifdef TCL_THREADS
-    Tcl_MutexUnlock(&syslogMutex);
-#endif
+    SYSLOG_MUTEX_UNLOCK
 
     status = get_thread_status();
     SyslogInitStatus(status);
@@ -385,8 +386,8 @@ static inline void log_message (SyslogThreadStatus* status,int open_changed) {
 }
 
 static int SyslogLogmaskCmd (ClientData clientData,
-                          Tcl_Interp *interp,
-                          int objc,Tcl_Obj *CONST86 objv[]) {
+                             Tcl_Interp *interp,
+                             int objc,Tcl_Obj *CONST86 objv[]) {
     return TCL_OK;
 }
 
@@ -397,7 +398,9 @@ static int SyslogOpenCmd (ClientData clientData,
     char* cdata = (char *) clientData;
     if (cdata != NULL) {
         if (strcmp(cdata,"isopen") == 0) {
+            SYSLOG_MUTEX_LOCK
             Tcl_SetObjResult(interp,Tcl_NewIntObj(g_status->opened));
+            SYSLOG_MUTEX_UNLOCK
             return TCL_OK;
         } else {
             Tcl_SetErrorCode(interp,"internal_error",cdata,(char *)NULL);
@@ -406,11 +409,9 @@ static int SyslogOpenCmd (ClientData clientData,
         }
     }
 
-#ifdef TCL_THREADS
-    Tcl_MutexLock(&syslogMutex);
-#endif
+    SYSLOG_MUTEX_LOCK
     int last_opt_index;
-    if (parse_open_options(interp,objc-1,&objv[1],true,&last_opt_index) < -1) {
+    if (parse_open_options(interp,objc,objv,true,&last_opt_index) < -1) {
         return TCL_ERROR;
     }
 
@@ -423,24 +424,18 @@ static int SyslogOpenCmd (ClientData clientData,
     SyslogClose();
     SyslogOpen();
 
-#ifdef TCL_THREADS
-    Tcl_MutexUnlock(&syslogMutex);
-#endif
+    SYSLOG_MUTEX_UNLOCK
     return TCL_OK;
 }
 
 static int SyslogCloseCmd (ClientData clientData,
                           Tcl_Interp *interp,
                           int objc,Tcl_Obj *CONST86 objv[]) {
-#ifdef TCL_THREADS
-    Tcl_MutexLock(&syslogMutex);
-#endif
+    SYSLOG_MUTEX_LOCK
 
     SyslogClose();
 
-#ifdef TCL_THREADS
-    Tcl_MutexUnlock(&syslogMutex);
-#endif
+    SYSLOG_MUTEX_UNLOCK
     return TCL_OK;
 }
 
@@ -458,16 +453,8 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
         return TCL_ERROR;
     }
 
-    /* syslog is called to actually log a message. We check
-     * right away if the two mandatory arguments are defined
-     * and the level is correct
-     *
-     * syslog ?-opt1 -opt2....? level message
-     */
-
-    /* actually this call should returned the same objc value. We have two argument parsing
-     * functions in order to spare some cycle for the arguments that are not supposed to
-     * be processed when 'syslog open' is called.
+    /*
+     *  syslog is called to actually log a message. 
      */
 
     int last_arg_opts = 0;
@@ -479,9 +466,7 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
        in new releases requiring the socket to the syslog utility to be explicitly
        reopened with new options */
 
-#ifdef TCL_THREADS
-    Tcl_MutexLock(&syslogMutex);
-#endif
+    SYSLOG_MUTEX_LOCK
 
     int tcl_exit_code = TCL_OK;
     int last_open_opt = 0;
@@ -507,16 +492,50 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
         }
     }
 
-#ifdef TCL_THREADS
-    Tcl_MutexUnlock(&syslogMutex);
-#endif
+    SYSLOG_MUTEX_UNLOCK
     return tcl_exit_code;
 }
 
 static int SyslogLogCmd (ClientData clientData,
                           Tcl_Interp *interp,
                           int objc,Tcl_Obj *CONST86 objv[]) {
-    return SyslogCmd(clientData,interp,objc,objv);
+    SyslogThreadStatus* status  = get_thread_status();
+
+    /* We repeat what we do in SyslogCmd but 
+     * skip the processing of the open specific
+     * options. This command is only for emitting
+     * log messages
+     */
+
+    if (objc < 2) {
+        wrong_arguments_message(interp, 1, objv);
+        return TCL_ERROR;
+    }
+
+    int last_arg_opts = 0;
+    if (parse_options(interp,objc, objv, status,&last_arg_opts) == -1) {
+        return TCL_ERROR;
+    }
+
+    int first_non_opt_arg = last_arg_opts + 1;
+    SYSLOG_MUTEX_LOCK
+    if (first_non_opt_arg == objc-2) {
+        Tcl_Obj* level_o = objv[objc-2];
+
+        int level_code = convert_level(interp,Tcl_GetString(level_o));
+        if (level_code == ERROR) {
+            Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown level specified.",-1));
+            return TCL_ERROR;
+        }
+        status->level = level_code;
+        status->message = Tcl_GetString(objv[objc-1]);
+        log_message(status,status->open_changed);
+    } else if (first_non_opt_arg == objc-1) {
+        status->message = Tcl_GetString(objv[objc-1]);
+        log_message(status,status->open_changed);
+    }
+    SYSLOG_MUTEX_UNLOCK
+    return TCL_OK;
 }
 
 static int convert_facility (Tcl_Interp *interp, const char *facility) {
