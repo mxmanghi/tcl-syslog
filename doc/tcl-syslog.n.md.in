@@ -92,7 +92,7 @@ The default facility is `"user"`.
 Command *::syslog::log* is the command for logging. The following options can be
 specified.
 
-- `-level' *level* describes the severity of the message. In order to control the message level possible arguments are:
+ - `-level' *level* describes the severity of the message. In order to control the message level possible arguments are:
 
 ```
 Priority    Description
@@ -107,21 +107,44 @@ debug       debug-level message
 ```
 the default level is *info*
 
-- `-priority` the priority argument is equivalent to `-level`
+ - `-priority` the priority argument is equivalent to `-level`
 
-- `-format` provides a limited support for the *syslog* formatting argument. For
-  this argument to be meaningful is must be a string where somewhere the '%s'
+ - `-format` provides a limited support for the *syslog* formatting argument. For
+  this argument to be meaningful it must be a string where somewhere the '%s'
 string qualifier must appear. A full support will be provided in future releases.
 
-- `-facility` is the same argument accepted by command
+ - `-facility` is the same argument accepted by command
+
+# OPTIONS INTERNAL HANDLING
+
+The *::syslog::open* and *::syslog::log* options become persistent across
+subsequent calls. Whereas *::syslog::log* options status is interpreter/thread
+private *::syslog::open* calls change the per-process global status of a
+connection that needs to be reset on every call. A sensible approach using
+the *syslog* package is therefore to call once *::syslog::open* for every
+process and then call *::syslog::log* with 
+
+# EXAMPLE
+
+```tcl
+package require syslog
+
+::syslog::open -ident myapp -facility local0 -pid
+::syslog::log -level info "An info message..."
+#equivalently
+::syslog::log info "An info message...."
+::syslog::log -facility user info "Info message 2...."
+#subsequent calls to log message preserve the state
+#of the last call and options can be omitted
+::syslog::log "Info message 3...."
 
 
 # COMPATIBILITY
 
-The global space command *syslog* is 
-
-
-# EXAMPLE
+The global space command *syslog* is provided for compatibility but it's
+deprecated because it potentially generates much overhead calling *openlog*
+every time. This command accepts the whole set of the *::syslog::log* and
+::syslog::open*
 
 ```tcl
 package require syslog
@@ -161,8 +184,14 @@ my_ident[7049]: Message 5.3
 Copyright (C) 2008 Alexandros Stergiakis  
 Copyright (C) 2024-2026 Massimo Manghi
 
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
 
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License along with this program. If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU General Public License along with
+this program. If not, see <http://www.gnu.org/licenses/>.
