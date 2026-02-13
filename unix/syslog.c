@@ -130,6 +130,90 @@ static SyslogThreadStatus *get_thread_status(void);
 static const char* g_default_format         = "%s";
 //static int       g_opensyslog_options     = LOG_ODELAY;
 
+/* X-macro based database of facilities and levels
+ *
+ * The tables define 2 arrays for facilities and levels
+ *
+ *  1 'facilities' and 'levels' define the cli definition
+ *    of such information
+ *
+ *  2 'facility_code' and 'level_code' map the corresponding
+ *    cli definitions to the codes defined in syslog.h
+ */
+
+#define SYSLOG_FACILITIES(X) \
+	X("kern",LOG_KERN,log_kern_idx,0) \
+	X("user",LOG_USER,log_user_idx,1) \
+	X("mail",LOG_MAIL,log_mail_idx,2) \
+	X("daemon",LOG_DAEMON,log_daemon_idx,3) \
+	X("auth",LOG_AUTH,log_auth_idx,4) \
+	X("syslog",LOG_SYSLOG,log_syslog_idx,5) \
+	X("lpr",LOG_LPR,log_lpr_idx,6) \
+	X("news",LOG_NEWS,log_news_idx,7) \
+	X("uucp",LOG_UUCP,log_uucp_idx,8) \
+	X("cron",LOG_CRON,log_cron_idx,9) \
+	X("authpriv",LOG_AUTHPRIV,log_authpriv_idx,10) \
+	X("ftp",LOG_FTP,log_ftp_idx,11) \
+	X("local0",LOG_LOCAL0,log_local0_idx,12) \
+	X("local1",LOG_LOCAL1,log_local1_idx,13) \
+	X("local2",LOG_LOCAL2,log_local2_idx,14) \
+	X("local3",LOG_LOCAL3,log_local3_idx,15) \
+	X("local4",LOG_LOCAL4,log_local4_idx,16) \
+	X("local5",LOG_LOCAL5,log_local5_idx,17) \
+	X("local6",LOG_LOCAL6,log_local6_idx,18) \
+	X("local7",LOG_LOCAL7,log_local7_idx,19)
+
+enum SyslogFacilitiesIndices {
+#define SYSLOG_FAC_IDX(facility,facility_code,facility_idx,n) facility_idx = n,
+    SYSLOG_FACILITIES(SYSLOG_FAC_IDX)
+    num_syslog_facilities
+};
+
+static char* facilities[num_syslog_facilities + 1] = {
+#define SYSLOG_FAC_CLI(facility,facility_code,facility_idx,n) [facility_idx] = facility,
+    SYSLOG_FACILITIES(SYSLOG_FAC_CLI)
+    [num_syslog_facilities] = NULL
+};
+
+static int facility_code[num_syslog_facilities + 1] = {
+#define SYSLOG_FAC_CODE(facility,facility_code,facility_idx,n) [facility_idx] = facility_code,
+    SYSLOG_FACILITIES(SYSLOG_FAC_CODE)
+    [num_syslog_facilities] = -1
+};
+
+#define SYSLOG_LEVELS(X) \
+	X("emergency",LOG_EMERG,log_emerg_idx,0) \
+	X("alert",LOG_ALERT,log_alert_idx,1) \
+	X("critical",LOG_CRIT,log_crit_idx,2) \
+	X("error",LOG_ERR,log_err_idx,3) \
+	X("warning",LOG_WARNING,log_warning_idx,4) \
+	X("notice",LOG_NOTICE,log_notice_idx,5) \
+	X("info",LOG_INFO,log_info_idx,6) \
+	X("debug",LOG_DEBUG,log_debug_idx,7)
+
+enum SyslogLevelsIndices {
+#define SYSLOG_LEVEL_IDX(level,level_code,level_idx,n) level_idx = n,
+    SYSLOG_LEVELS(SYSLOG_LEVEL_IDX)
+    num_syslog_levels
+};
+
+static char* levels[num_syslog_levels+1] = {
+#define SYSLOG_LEVEL_CLI(level,level_code,level_idx,n) [level_idx] = level,
+    SYSLOG_LEVELS(SYSLOG_LEVEL_CLI)
+    [num_syslog_levels] = NULL
+};
+
+static int level_code[num_syslog_levels+1] = {
+#define SYSLOG_LEVEL_CODE(level,level_code,level_idx,n) [level_idx] = level_code,
+    SYSLOG_LEVELS(SYSLOG_LEVEL_CODE)
+    [num_syslog_levels] = -1
+};
+
+/**
+#define SYSLOG_OPTIONS(X) \
+    X("-pid",LOG_PID,0) \
+**/
+
 /*
  * Function Bodies
  */
@@ -145,7 +229,7 @@ static void SyslogInitStatus (SyslogThreadStatus *status)
 {
     status->format       = (char *) g_default_format;
     status->level        = LOG_INFO;
-    status->facility     = 0;
+    status->facility     = -1;
     status->initialized  = true;
     status->message      = NULL;
     status->open_changed = 0;
@@ -210,17 +294,9 @@ int syslog_Init(Tcl_Interp *interp) {
     return Syslog_Init(interp);
 }
 
-/* Facility and level handling */
+/* Facility and level mapping */
 
-static int convert_facility (Tcl_Interp *interp, const char *facility) {
-    static char* facilities[] = { "kern", "user", "mail", "daemon", "auth", "syslog",
-                                  "lpr", "news", "uucp", "cron", "authpriv", "ftp",
-                                  "local0", "local1", "local2", "local3", "local4",
-                                  "local5", "local6", "local7", NULL };
-    static int facility_code[] = { LOG_KERN, LOG_USER, LOG_MAIL, LOG_DAEMON, LOG_AUTH, LOG_SYSLOG,
-                                   LOG_LPR, LOG_NEWS, LOG_UUCP, LOG_CRON, LOG_AUTHPRIV, LOG_FTP,
-                                   LOG_LOCAL0, LOG_LOCAL1, LOG_LOCAL2, LOG_LOCAL3, LOG_LOCAL4,
-                                   LOG_LOCAL5, LOG_LOCAL6, LOG_LOCAL7 };
+static int facility_cli_to_code (Tcl_Interp *interp, const char *facility) {
     int index;
     Tcl_Obj *facility_o = Tcl_NewStringObj(facility, -1);
     Tcl_IncrRefCount(facility_o); /* Let's protect its memory */
@@ -234,13 +310,19 @@ static int convert_facility (Tcl_Interp *interp, const char *facility) {
     return facility_code[index];
 }
 
+static char* facility_code_to_cli (int code) {
+    int index;
+    for (index = 0; index < num_syslog_facilities; index++) {
+        if (facility_code[index] == code) { return facilities[index]; }
+    }
+    return NULL;
+}
+
 static int convert_level (Tcl_Interp *interp, const char *level) {
-    static char* levels[]     = {"emergency", "alert", "critical", "error", "warning", "notice", "info", "debug", NULL};
-    static int   level_code[] = {LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR , LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG};
     int index;
 
     Tcl_Obj *level_o = Tcl_NewStringObj(level, -1);
-    Tcl_IncrRefCount(level_o); /* see convert_facility */
+    Tcl_IncrRefCount(level_o); /* see facility_cli_to_code */
 
     if (Tcl_GetIndexFromObj(interp, level_o, levels, "level", 0, &index) != TCL_OK) {
         Tcl_DecrRefCount(level_o);
@@ -250,6 +332,15 @@ static int convert_level (Tcl_Interp *interp, const char *level) {
 
     return level_code[index];
 }
+
+static char* level_code_to_cli (int code) {
+    int index;
+    for (index = 0; index < num_syslog_levels; index++) {
+        if (level_code[index] == code) { return levels[index]; }
+    }
+    return NULL;
+}
+
 
 /*
  * Functions handing errors 
@@ -354,7 +445,7 @@ static int parse_open_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 obj
                 return ERROR;
             }
             const char *facility_s = Tcl_GetString(objv[++index]);
-            int f = convert_facility(interp, facility_s);
+            int f = facility_cli_to_code(interp, facility_s);
             if (f == ERROR) {
                 Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown facility specified.",-1));
                 return ERROR;
@@ -423,7 +514,7 @@ static int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],
             }
 
             const char *facility_s = Tcl_GetString(objv[++index]);
-            int f = convert_facility(interp, facility_s);
+            int f = facility_cli_to_code(interp, facility_s);
             if (f == ERROR) {
                 Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown facility specified.",-1));
                 return ERROR;
@@ -570,6 +661,30 @@ static int SyslogCloseCmd (ClientData clientData,
 static int SyslogConfigurationCmd (ClientData clientData,
                                     Tcl_Interp *interp,
                                     int objc,Tcl_Obj *CONST86 objv[]) {
+    if (objc == 2) {
+        char* argument = Tcl_GetString(objv[1]);
+        if (strcmp(argument,"-global") == 0) {
+            Tcl_Obj* global_info = Tcl_NewDictObj();
+            SYSLOG_MUTEX_LOCK
+
+            if (g_status->ident != NULL) {
+                Tcl_DictObjPut(interp,global_info,
+                               Tcl_NewStringObj("-ident",-1),
+                               Tcl_NewStringObj(g_status->ident,-1));
+            }
+
+            char* facility = facility_code_to_cli(g_status->facility);
+            if (facility != NULL) {
+                Tcl_DictObjPut(interp,global_info,
+                               Tcl_NewStringObj("-facility",-1),
+                               Tcl_NewStringObj(facility,-1));
+            }
+
+            SYSLOG_MUTEX_UNLOCK
+            return TCL_OK;
+        }
+    }
+
     return TCL_OK;
 }
 
