@@ -209,10 +209,33 @@ static int level_code[num_syslog_levels+1] = {
     [num_syslog_levels] = -1
 };
 
-/**
 #define SYSLOG_OPTIONS(X) \
-    X("-pid",LOG_PID,0) \
-**/
+    X("-pid",LOG_PID,log_pid_idx) \
+    X("-perror",LOG_PERROR,log_perror_idx) \
+    X("-console",LOG_CONS,log_cons_idx) \
+    X("-nodelay",LOG_NDELAY,log_ndelay_idx)
+
+enum SyslogOptions {
+#define SYSLOG_OPTIONS_IDX(option,optcode,option_idx) option_idx,
+    SYSLOG_OPTIONS(SYSLOG_OPTIONS_IDX)
+
+    num_syslog_options
+};
+
+static char* options[num_syslog_options+1] = {
+#define SYSLOG_OPTION_CLI(option,optcode,option_idx) [option_idx] = option,
+    SYSLOG_OPTIONS(SYSLOG_OPTION_CLI) 
+
+    (char *) NULL
+};
+
+static int opt_code[num_syslog_options+1] = {
+#define SYSLOG_OPTION_CODE(option,optcode,option_idx) [option_idx] = optcode,
+    SYSLOG_OPTIONS(SYSLOG_OPTION_CODE)
+    /* Sentinel */
+    [num_syslog_options] = -1  
+};
+    
 
 /*
  * Function Bodies
@@ -318,7 +341,7 @@ static char* facility_code_to_cli (int code) {
     return NULL;
 }
 
-static int convert_level (Tcl_Interp *interp, const char *level) {
+static int level_cli_to_code (Tcl_Interp *interp, const char *level) {
     int index;
 
     Tcl_Obj *level_o = Tcl_NewStringObj(level, -1);
@@ -340,7 +363,6 @@ static char* level_code_to_cli (int code) {
     }
     return NULL;
 }
-
 
 /*
  * Functions handing errors 
@@ -497,7 +519,7 @@ static int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],
             }
 
             const char *level_s = Tcl_GetString(objv[++index]);
-            int p = convert_level(interp,level_s);
+            int p = level_cli_to_code(interp,level_s);
             if (p == ERROR) {
                 Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown level specified.",-1));
                 return ERROR;
@@ -664,23 +686,33 @@ static int SyslogConfigurationCmd (ClientData clientData,
     if (objc == 2) {
         char* argument = Tcl_GetString(objv[1]);
         if (strcmp(argument,"-global") == 0) {
-            Tcl_Obj* global_info = Tcl_NewDictObj();
-            SYSLOG_MUTEX_LOCK
+            Tcl_Obj* global_info = Tcl_NewObj();
+            Tcl_IncrRefCount(global_info);
 
+            SYSLOG_MUTEX_LOCK
             if (g_status->ident != NULL) {
-                Tcl_DictObjPut(interp,global_info,
-                               Tcl_NewStringObj("-ident",-1),
-                               Tcl_NewStringObj(g_status->ident,-1));
+                Tcl_ListObjAppendElement(interp,global_info,Tcl_NewStringObj("-ident",-1));
+                Tcl_ListObjAppendElement(interp,global_info,Tcl_NewStringObj(g_status->ident,-1));
             }
 
             char* facility = facility_code_to_cli(g_status->facility);
             if (facility != NULL) {
-                Tcl_DictObjPut(interp,global_info,
-                               Tcl_NewStringObj("-facility",-1),
-                               Tcl_NewStringObj(facility,-1));
+                Tcl_ListObjAppendElement(interp,global_info,Tcl_NewStringObj("-facility",-1));
+                Tcl_ListObjAppendElement(interp,global_info,Tcl_NewStringObj(facility,-1));
             }
 
+            int opt;
+            for (opt = 0; opt < num_syslog_options; opt++)
+            {
+                if ((g_status->options & opt_code[opt]) != 0)
+                {
+                    Tcl_ListObjAppendElement(interp,global_info,Tcl_NewStringObj(options[opt],-1));
+                }
+            }
+
+            Tcl_SetObjResult(interp,global_info);
             SYSLOG_MUTEX_UNLOCK
+            Tcl_DecrRefCount(global_info);
             return TCL_OK;
         }
     }
@@ -737,7 +769,7 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
         if (first_non_opt_arg == objc-2) {
             Tcl_Obj* level_o = objv[objc-2];
 
-            int level_code = convert_level(interp,Tcl_GetString(level_o));
+            int level_code = level_cli_to_code(interp,Tcl_GetString(level_o));
             if (level_code == ERROR) {
                 Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown level specified.",-1));
                 return TCL_ERROR;
@@ -785,7 +817,7 @@ static int SyslogLogCmd (ClientData clientData,
     if (first_non_opt_arg == objc-2) {
         Tcl_Obj* level_o = objv[objc-2];
 
-        int level_code = convert_level(interp,Tcl_GetString(level_o));
+        int level_code = level_cli_to_code(interp,Tcl_GetString(level_o));
         if (level_code == ERROR) {
             Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown level specified.",-1));
             return TCL_ERROR;
