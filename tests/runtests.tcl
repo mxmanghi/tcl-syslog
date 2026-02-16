@@ -18,7 +18,9 @@
 set auto_path [concat "." $auto_path]
 
 package require tcltest
-package require syslog
+#package require syslog
+
+load ../libsyslog1.3.0.so
 
 source [file join [file dirname [info script]] harness.tcl]
 
@@ -35,7 +37,7 @@ set base "TCLTEST-SYSLOG-[pid]-[clock milliseconds]"
 # 2. Wait using waitForLiteral/waitForRegexp with an explicit timeout.\\
 # 3. Assert against dict fields: raw, payload, timestamp_kind.
 
-::tcltest::configure -testdir [file dirname [file normalize [info script]]] {*}$argv
+::tcltest::configure -singleproc 1 -testdir [file dirname [file normalize [info script]]] {*}$argv
 ::tcltest::runAllTests
 
 if {$hasSyslogWatcher} {

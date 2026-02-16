@@ -16,8 +16,8 @@ proc ::syslogtest::harness::request {args} {
 
     puts $channel $args
     flush $channel
-    if {[gets $channel response] < 0} {
-        error "no response from test server"
+    if {[chan gets $channel response] < 0} {
+        error "no response from test server (--> $args)"
     }
 
     set status [lindex $response 0]
@@ -52,16 +52,18 @@ proc ::syslogtest::harness::start {{timeoutMs 5000}} {
     set pids [exec {*}$cmd >$log_file 2>@1 &]
     set server_pid [lindex $pids 0]
 
+    puts "pid: $server_pid"
+
     set deadline [expr {[clock milliseconds] + $timeoutMs}]
     while {[clock milliseconds] <= $deadline} {
-        if {[catch {exec kill -0 $serverPid}]} {
+        if {[catch {exec kill -0 $server_pid}]} {
             set details ""
             if {[file exists $log_file]} {
                 set in [open $log_file r]
                 set details [string trim [read $in]]
                 close $in
             }
-            stop
+            [namespace current]::stop
             if {$details ne ""} {
                 error "test server exited during startup: $details"
             }
@@ -80,7 +82,7 @@ proc ::syslogtest::harness::start {{timeoutMs 5000}} {
         after 50
     }
     if {!$connected} {
-        stop
+        [namespace current]::stop
         error "timed out connecting to test server on port $port"
     }
 
@@ -90,7 +92,7 @@ proc ::syslogtest::harness::start {{timeoutMs 5000}} {
 
 proc ::syslogtest::harness::stop {} {
     variable channel
-    variable serverPid
+    variable server_pid
     variable log_file
 
     if {$channel ne ""} {
@@ -99,12 +101,12 @@ proc ::syslogtest::harness::stop {} {
     }
     set channel ""
 
-    if {$serverPid ne ""} {
-        catch {exec kill $serverPid}
+    if {$server_pid ne ""} {
+        catch {exec kill $server_pid}
     }
-    set serverPid ""
+    set server_pid ""
 
-    if {$log_file ne "" && [file exists $logFile]} {
+    if {$log_file ne "" && [file exists $log_file]} {
         catch {file delete -force -- $log_file}
     }
     set log_file ""

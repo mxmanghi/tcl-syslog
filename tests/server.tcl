@@ -174,7 +174,7 @@ proc ::syslogtest::server::onClientReadable {chan} {
         writeResponse $chan error "empty request"
         return
     }
-
+    puts "<--- $line"
     set cmd [lindex $line 0]
     switch -- $cmd {
         ping {
@@ -227,7 +227,7 @@ proc ::syslogtest::server::main {argv} {
     set sourceKind [dict get $source kind]
     openSource
 
-    if {!dict exists $opts -port]} { usage }
+    if {![dict exists $opts -port]} { usage }
     set port [dict get $opts -port]
 
     set listener [socket -server ::syslogtest::server::acceptClient -myaddr 127.0.0.1 $port]
