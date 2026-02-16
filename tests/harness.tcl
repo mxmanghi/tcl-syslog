@@ -43,7 +43,7 @@ proc ::syslogtest::harness::start {{timeoutMs 5000}} {
         return
     }
 
-    set port $
+    set port $::syslogtest::harness::server_port
 
     set token "[pid]-[clock milliseconds]-[expr {int(rand() * 100000)}]"
     set log_file [file join /tmp "tcl-syslog-test-server-${token}.log"]

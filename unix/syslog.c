@@ -83,8 +83,8 @@ static int SyslogCmd (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_O
 static int SyslogOpenCmd (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[]);
 static int SyslogCloseCmd (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[]);
 static int SyslogLogmaskCmd (ClientData clientData, Tcl_Interp *interp, int objc,Tcl_Obj *CONST86 objv[]);
-static int SyslogConfigureCmd (ClientData clientData, Tcl_Interp *interp, int objc,Tcl_Obj *CONST86 objv[]);
-static int SyslogCGetCmd (ClientData clientData, Tcl_Interp *interp, int objc,Tcl_Obj *CONST86 objv[]);
+static int SyslogConfigureCmd (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[]);
+static int SyslogCGetCmd (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[]);
 static int SyslogLogCmd (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[]);
 
 static void SyslogInitGlobal (void);
