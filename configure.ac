@@ -72,8 +72,8 @@ TEA_SETUP_COMPILER
 # and PKG_TCL_SOURCES.
 #-----------------------------------------------------------------------
 
-TEA_ADD_SOURCES([unix/syslog.c])
-TEA_ADD_HEADERS([])
+TEA_ADD_SOURCES([unix/syslog.c unix/parse_options.c unix/params.c unix/globals.c])
+TEA_ADD_HEADERS([unix/syslog.h unix/params.h])
 TEA_ADD_INCLUDES([])
 TEA_ADD_LIBS([])
 TEA_ADD_CFLAGS([])
