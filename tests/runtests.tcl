@@ -1,5 +1,20 @@
 #!/usr/bin/tclsh9.0
 
+#    Copyright (C) 2026 Massimo Manghi <mxmanghi@apache.org>
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 set auto_path [concat "." $auto_path]
 
 package require tcltest
@@ -15,31 +30,15 @@ if {![catch {::syslogtest::harness::start 7000} startErr]} {
 
 set base "TCLTEST-SYSLOG-[pid]-[clock milliseconds]"
 
-::tcltest::test syslog-template-1.0 {literal payload roundtrip via test server} \
-    -constraints hasSyslogWatcher \
-    -body {
-        set msg "${::base}-literal"
-        syslog -pid -ident test_ident -facility local2 critical $msg
-        set hit [::syslogtest::harness::waitForLiteral $msg 8000]
-        expr {[dict get $hit payload] eq $msg}
-    } -result 1
-
-::tcltest::test syslog-template-1.1 {regexp payload match via test server} \
-    -constraints hasSyslogWatcher \
-    -body {
-        set msg "${::base}-regexp seq=42"
-        syslog -pid -ident test_ident -facility local2 notice $msg
-        set hit [::syslogtest::harness::waitForRegexp {seq=[0-9]+} 8000]
-        regexp -- {seq=42} [dict get $hit payload]
-    } -result 1
-
 # Template for future tests:
 # 1. Emit a unique message through syslog.
 # 2. Wait using waitForLiteral/waitForRegexp with an explicit timeout.\\
 # 3. Assert against dict fields: raw, payload, timestamp_kind.
 
+::tcltest::configure -testdir [file dirname [file normalize [info script]]] {*}$argv
+::tcltest::runAllTests
+
 if {$hasSyslogWatcher} {
     ::syslogtest::harness::stop
 }
-
 ::tcltest::cleanupTests
