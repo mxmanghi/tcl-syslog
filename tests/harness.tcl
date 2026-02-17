@@ -1,10 +1,10 @@
 
 namespace eval ::syslogtest::harness {
-    variable channel        ""
-    variable server_pid      ""
-    variable log_file        ""
-    variable server_script   [file join [file dirname [info script]] server.tcl]
-    variable server_port    8888
+    variable channel            ""
+    variable server_pid         ""
+    variable log_file           ""
+    variable server_script      [file join [file dirname [info script]] server.tcl]
+    variable server_port        8888
 }
 
 proc ::syslogtest::harness::request {args} {
@@ -45,7 +45,7 @@ proc ::syslogtest::harness::start {{timeoutMs 5000}} {
 
     set port $::syslogtest::harness::server_port
 
-    set token "[pid]-[clock milliseconds]-[expr {int(rand() * 100000)}]"
+    set token   "[pid]-[clock milliseconds]-[expr {int(rand() * 100000)}]"
     set log_file [file join /tmp "tcl-syslog-test-server-${token}.log"]
 
     set cmd [list [info nameofexecutable] $server_script -port $port]

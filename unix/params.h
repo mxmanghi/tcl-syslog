@@ -50,10 +50,13 @@
     X("-console",LOG_CONS,log_cons_idx) \
     X("-nodelay",LOG_NDELAY,log_ndelay_idx)
 
+/* these enums just provide a way to count how many
+ * elements for each parameter exist
+ */
+
 enum SyslogOptions {
 #define SYSLOG_OPTIONS_IDX(option,optcode,option_idx) option_idx,
     SYSLOG_OPTIONS(SYSLOG_OPTIONS_IDX)
-
     num_syslog_options
 };
 

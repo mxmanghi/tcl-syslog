@@ -18,9 +18,9 @@
  *    along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 #include "syslog.h"
 
 SyslogGlobalStatus *g_status = NULL;
 char* g_default_format = "%s";
+
 
