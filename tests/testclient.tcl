@@ -1,6 +1,15 @@
 load ../libtcl9syslog1.3.0.so
 proc writeServerChan {sk args} { puts $sk $args; flush $sk }
-proc readServerChan {sk} { puts [gets $sk] }
+proc readServerChan {sk} { 
+    if {[eof $sk]} { 
+        close $sk 
+        chan event $sk readable ""
+        return
+    }
+
+    puts [gets $sk] 
+
+}
 set sk [socket 127.0.0.1 8888]
 
 chan event $sk readable [list readServerChan $sk]

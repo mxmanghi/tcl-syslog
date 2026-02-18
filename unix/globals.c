@@ -1,5 +1,6 @@
 /*
- *    syslog - Syslog loggin service for Tcl
+ *    globals.c - tcl-syslog extension's global data
+ *
  *    A Tcl interface to the POSIX syslog service.
  *
  *    Copyright (C) 2026 Massimo Manghi <mxmanghi@apache.org>

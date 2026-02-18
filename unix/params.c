@@ -1,8 +1,8 @@
 /*
- *    syslog - Syslog loggin service for Tcl
+ *    params.c - syslog command options definitions
+ *
  *    A Tcl interface to the POSIX syslog service.
  *
- *    Copyright (C) 2008 Alexandros Stergiakis
  *    Copyright (C) 2024-26 Massimo Manghi <mxmanghi@apache.org>
  *
  *    This program is free software: you can redistribute it and/or modify

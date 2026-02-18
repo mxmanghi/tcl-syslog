@@ -32,7 +32,7 @@ proc ::syslogtest::harness::request {args} {
     error $message
 }
 
-proc ::syslogtest::harness::start {{timeoutMs 5000}} {
+proc ::syslogtest::harness::start {{timeoutMs 5000} {datasource syslog}} {
     variable channel
     variable server_pid
     variable log_file
@@ -48,29 +48,33 @@ proc ::syslogtest::harness::start {{timeoutMs 5000}} {
     set token   "[pid]-[clock milliseconds]-[expr {int(rand() * 100000)}]"
     set log_file [file join /tmp "tcl-syslog-test-server-${token}.log"]
 
-    set cmd [list [info nameofexecutable] $server_script -port $port]
-    set pids [exec {*}$cmd >$log_file 2>@1 &]
-    set server_pid [lindex $pids 0]
+    set cmd         [list [info nameofexecutable] $server_script -port $port -source $datasource]
+    set pids        [exec {*}$cmd >$log_file 2>@1 &]
+    set server_pid  [lindex $pids 0]
 
     puts "pid: $server_pid"
 
     set deadline [expr {[clock milliseconds] + $timeoutMs}]
-    while {[clock milliseconds] <= $deadline} {
-        if {[catch {exec kill -0 $server_pid}]} {
-            set details ""
-            if {[file exists $log_file]} {
-                set in [open $log_file r]
-                set details [string trim [read $in]]
-                close $in
-            }
-            [namespace current]::stop
-            if {$details ne ""} {
-                error "test server exited during startup: $details"
-            }
-            error "test server exited during startup"
-        }
+    set cycle 0
+    while {([clock milliseconds] <= $deadline) && [catch {exec kill -0 $server_pid}]} {
+        puts -nonewline "."; flush stdout
+        incr cycle
         after 50
     }
+    if {[catch {exec kill -0 $server_pid}]} {
+        set details ""
+        if {[file exists $log_file]} {
+            set in [open $log_file r]
+            set details [string trim [read $in]]
+            close $in
+        }
+        [namespace current]::stop
+        if {$details ne ""} {
+            error "test server exited during startup: $details"
+        }
+        error "test server exited during startup"
+    }
+    puts "\n"
     set deadline [expr {[clock milliseconds] + $timeoutMs}]
 
     set connected 0
@@ -112,18 +116,11 @@ proc ::syslogtest::harness::stop {} {
     set log_file ""
 }
 
-proc ::syslogtest::harness::waitForLiteral {text {timeoutMs 5000}} {
-    set response [request wait literal $text $timeoutMs]
+proc ::syslogtest::harness::wait_for_response {text {pattern_type literal} {timeoutMs 5000}} {
+    set response [request wait $pattern_type $text $timeoutMs]
     return [dict create \
         raw [lindex $response 0] \
         payload [lindex $response 1] \
         timestamp_kind [lindex $response 2]]
 }
 
-proc ::syslogtest::harness::waitForRegexp {pattern {timeoutMs 5000}} {
-    set response [request wait regexp $pattern $timeoutMs]
-    return [dict create \
-        raw [lindex $response 0] \
-        payload [lindex $response 1] \
-        timestamp_kind [lindex $response 2]]
-}

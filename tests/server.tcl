@@ -237,6 +237,7 @@ proc ::syslogtest::server::main {argv} {
     set port [dict get $opts -port]
 
     set listener [socket -server ::syslogtest::server::acceptClient -myaddr 127.0.0.1 $port]
+    puts "server started with pid [pid]"
     while {$running} {
         vwait ::syslogtest::server::running
     }

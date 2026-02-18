@@ -1,5 +1,6 @@
 /*
- *    syslog - Syslog loggin service for Tcl
+ *    syslog.h - Syslog loggin service for Tcl
+ *
  *    A Tcl interface to the POSIX syslog service.
  *
  *    Copyright (C) 2026 Massimo Manghi <mxmanghi@apache.org>
@@ -46,6 +47,11 @@ typedef bool _Bool;
 # define __bool_true_false_are_defined 1
 #endif
 
+#ifdef TCL_SYSLOG_DEBUG
+#define SYSLOG_DEBUG_MSG(s)  fprintf(stderr,"%s\n",s);
+#else
+#define SYSLOG_DEBUG_MSG(s)
+#endif
 typedef struct SyslogThreadStatus {
     char*   format;
     int     level;
@@ -83,8 +89,8 @@ typedef struct SyslogGlobalStatus {
 
 #endif
 
-#define ERROR -1
-#define SYSLOG_NS "::syslog"
+#define ERROR       -1
+#define SYSLOG_NS   "::syslog"
 
 int parse_open_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],
                        bool open_cmd,int* last_option_p,bool *unhandled_opt,char *tcl_command);
@@ -94,9 +100,9 @@ int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],
 
 /* facilities */
 
-int facility_cli_to_code (Tcl_Interp *interp, const char *facility);
-char* facility_code_to_cli (int code);
-int level_cli_to_code (Tcl_Interp *interp, const char *level);
-char* level_code_to_cli (int code);
+int     facility_cli_to_code (Tcl_Interp *interp, const char *facility);
+char*   facility_code_to_cli (int code);
+int     level_cli_to_code (Tcl_Interp *interp, const char *level);
+char*   level_code_to_cli (int code);
 
 #endif /* __syslog_h__ */
