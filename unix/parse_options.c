@@ -21,6 +21,7 @@
 #include <string.h>
 #include <syslog.h>
 #include "syslog.h"
+#include "params.h"
 
 extern SyslogGlobalStatus *g_status;
 extern char* g_default_format;
@@ -30,7 +31,7 @@ static void missing_option_value (Tcl_Interp* interp,char* cmd,Tcl_Obj* option)
     Tcl_Obj* error_code_list = Tcl_NewObj();
     Tcl_IncrRefCount(error_code_list);
 
-    Tcl_ListObjAppendElement(interp, error_code_list, Tcl_NewStringObj("wrong_argument_value", -1));
+    Tcl_ListObjAppendElement(interp, error_code_list, Tcl_NewStringObj("missing_argument_value", -1));
     Tcl_ListObjAppendElement(interp, error_code_list, option);
     Tcl_SetObjErrorCode(interp, error_code_list);
 
@@ -57,79 +58,26 @@ static void missing_option_value (Tcl_Interp* interp,char* cmd,Tcl_Obj* option)
  *
  */
 
-int parse_open_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],
-                              bool open_cmd,int* last_option_p,bool *unhandled_opt,char *tcl_command) {
-    const char *argument    = NULL;
-    int         index       = 1;
-    int         fchanged    = 0;
-    int         last_option_index = 0;
+const char* options[num_syslog_options+1] = {
+#define SYSLOG_OPTION_CLI(option,optcode,option_idx,opt_class) [option_idx] = option,
+    SYSLOG_OPTIONS(SYSLOG_OPTION_CLI) 
+    /* Sentinel */
+    (char *) NULL
+};
 
-    while (index < objc) {
-        argument = Tcl_GetString(objv[index]);
-        if (strcmp("-ident", argument) == 0) {
-            if (index == objc-1) {
-                missing_option_value(interp,tcl_command,objv[index]);
-                return ERROR;
-            }
-            const char* ident = Tcl_GetString(objv[++index]);
-            size_t len = strlen(ident);
-            char *copy = (char *) Tcl_Alloc(len + 1);
-            memcpy(copy,ident,len + 1);
+int opt_code[num_syslog_options+1] = {
+#define SYSLOG_OPTION_CODE(option,optcode,option_idx,opt_class) [option_idx] = optcode,
+    SYSLOG_OPTIONS(SYSLOG_OPTION_CODE)
+    /* Sentinel */
+    [num_syslog_options] = -1  
+};
 
-            if (g_status->ident != NULL) {
-                Tcl_Free(g_status->ident);
-            }
-            g_status->ident = copy;
-            fchanged++;
-            last_option_index = index;
-        } else if (strcmp("-nodelay",argument) == 0) {
-            g_status->options = g_status->options | LOG_NDELAY;
-            fchanged++;
-            last_option_index = index;
-        } else if (strcmp("-console",argument) == 0) {
-            g_status->options = g_status->options | LOG_CONS;
-            fchanged++;
-            last_option_index = index;
-        } else if ((strcmp("-facility",argument) == 0) && open_cmd) {
-
-            /*
-             * the '-facility' switch must be handled in this context
-             * only when the command 'syslog open...' is processed
-             */
-
-            if (objc == index) {
-                missing_option_value(interp,tcl_command,objv[index]);
-                return ERROR;
-            }
-            const char *facility_s = Tcl_GetString(objv[++index]);
-            int f = facility_cli_to_code(interp, facility_s);
-            if (f == ERROR) {
-                Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown facility specified.",-1));
-                return ERROR;
-            }
-            g_status->facility = f;
-            fchanged++;
-            last_option_index = index;
-        } else if (strcmp("-pid",argument) == 0) {
-            g_status->options = g_status->options | LOG_PID;
-            fchanged++;
-            last_option_index = index;
-        } else if (strcmp("-perror",argument) == 0) {
-            g_status->options = g_status->options | LOG_PERROR;
-            fchanged++;
-            last_option_index = index;
-        } else if (argument[0] == '-') {
-            *unhandled_opt = true;
-        } else {
-            Tcl_WrongNumArgs(interp,objc,objv,
-            "?open|close|log? ?-ident ident? ?-facility facility? ?-pid? ?-perror? ?-level level? message");
-            return ERROR;
-        }
-        index++;
-    }
-    *last_option_p = last_option_index;
-    return fchanged;
-}
+int opt_class[num_syslog_options+1] = {
+#define SYSLOG_OPTION_CLASS(option,optcode,option_idx,opt_class) [option_idx] = opt_class,
+    SYSLOG_OPTIONS(SYSLOG_OPTION_CLASS)
+    /* Sentinel */
+    [num_syslog_options] = 0
+};
 
 /*
  * parse_options
@@ -137,13 +85,15 @@ int parse_open_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],
  */
 
 int parse_options (Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],
-                   SyslogThreadStatus* status, int* last_option_p, bool *unhandled_opt,
-                   char* tcl_command) {
-    const char *argument = NULL;
-    int         index    = 1;
-    int         fchanged = 0;
-    int         last_option_index = 0;
+                    SyslogThreadStatus* status, int* last_option_p, int *unhandled_opt,
+                    int option_class,char* tcl_command) {
 
+    int  index    = 1;
+    int  fchanged = 0;
+    int  last_option_index = 0;
+    int  option_idx;
+
+    *unhandled_opt = 0;
     status->facility = -1;
     if (status->format != g_default_format) {
         Tcl_Free(status->format);
@@ -151,66 +101,149 @@ int parse_options (Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],
     }
 
     while (index < objc) {
-        argument = Tcl_GetString(objv[index]);
-        if ((strcmp("-priority",argument) == 0) || 
-            (strcmp("-level",argument)    == 0)) {
 
-            if (index == objc-1) {
-                missing_option_value(interp,tcl_command,objv[index]);
-                return ERROR;
+        /* Read the docs! Tcl_GetIndexFromObj stores an 
+         * error in the interpreter if a the search
+         * string is not found in the string array.
+         * Setting it to NULL avoids this sid 
+         */
+
+        if (Tcl_GetIndexFromObj(NULL,objv[index],options,"option",TCL_EXACT,&option_idx) == TCL_ERROR) {
+            const char* argument = Tcl_GetString(objv[index]);
+
+            if (strcmp(argument,"--") == 0) {
+                /* end of options seqeunce, we proceed with the follwing opt */
+                if (index == objc-1) {
+                    missing_option_value(interp,tcl_command,objv[index]);
+                    return ERROR;
+                }
+                *last_option_p = last_option_index;
+                return fchanged;
+            } else if (argument[0] == '-') {
+                *unhandled_opt = index;
+                return INVALID_OPTION;
+            } else {
+
+                /* we hit a log message or log facility argument */
+
+                *last_option_p = last_option_index;
+                return fchanged;
             }
+            
+        }
 
-            const char *level_s = Tcl_GetString(objv[++index]);
-            int p = level_cli_to_code(interp,level_s);
-            if (p == ERROR) {
-                Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown level specified.",-1));
-                return ERROR;
+        if ((opt_class[option_idx] & option_class) == 0) {
+            *unhandled_opt = index;
+            return INVALID_OPTION_CLASS;
+        }
+
+        switch (option_idx) {
+            case ident_idx:
+            {
+                if (index == objc-1) {
+                    missing_option_value(interp,tcl_command,objv[index]);
+                    return ERROR;
+                }
+                const char* ident = Tcl_GetString(objv[++index]);
+                size_t len = strlen(ident);
+                char *copy = (char *) Tcl_Alloc(len + 1);
+                memcpy(copy,ident,len + 1);
+
+                if (g_status->ident != NULL) {
+                    Tcl_Free(g_status->ident);
+                }
+                g_status->ident = copy;
+                fchanged++;
+                last_option_index = index;
+                break;
             }
-            status->level = p;
-            fchanged++;
-            last_option_index = index;
-
-        } else if (strcmp("-facility",argument) == 0) {
-
-            if (index == objc-1) {
-                missing_option_value(interp,tcl_command,objv[index]);
-                return ERROR;
+            case log_ndelay_idx:
+            {
+                g_status->options = g_status->options | LOG_NDELAY;
+                fchanged++;
+                last_option_index = index;
+                break;
             }
-
-            const char *facility_s = Tcl_GetString(objv[++index]);
-            int f = facility_cli_to_code(interp, facility_s);
-            if (f == ERROR) {
-                Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown facility specified.",-1));
-                return ERROR;
+            case log_console_idx:
+            {
+                g_status->options = g_status->options | LOG_CONS;
+                fchanged++;
+                last_option_index = index;
+                break;
             }
-            status->facility = f;
-            fchanged++;
-            last_option_index = index;
-
-        } else if (strcmp("-format",argument) == 0) {
-
-            if (index == objc-1) {
-                missing_option_value(interp,tcl_command,objv[index]);
-                return ERROR;
+            case log_pid_idx:
+            {
+                g_status->options = g_status->options | LOG_PID;
+                fchanged++;
+                last_option_index = index;
+                break;
             }
-
-            const char *format_s = Tcl_GetString(objv[++index]);
-            size_t len = strlen(format_s);
-            char *copy = (char *) Tcl_Alloc(len + 1);
-            memcpy(copy,format_s,len + 1);
-            if ((status->format != NULL) && (status->format != g_default_format)) {
-                Tcl_Free(status->format);
+            case log_perror_idx:
+            {
+                g_status->options = g_status->options | LOG_PERROR;
+                fchanged++;
+                last_option_index = index;
+                break;
             }
-            status->format = copy;
-            fchanged++;
-            last_option_index = index;
+            case priority_idx:
+            case level_idx:
+            {
+                if (index == objc-1) {
+                    missing_option_value(interp,tcl_command,objv[index]);
+                    return ERROR;
+                }
 
-        } else if (argument[0] == '-') {
-            *unhandled_opt = true;
-        } 
+                const char *level_s = Tcl_GetString(objv[++index]);
+                int p = level_cli_to_code(interp,level_s);
+                if (p == ERROR) {
+                    Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown level specified.",-1));
+                    return ERROR;
+                }
+                status->level = p;
+                fchanged++;
+                last_option_index = index;
+                break;
+            }
+            case facility_idx:
+            {
+                if (index == objc-1) {
+                    missing_option_value(interp,tcl_command,objv[index]);
+                    return ERROR;
+                }
+
+                const char *facility_s = Tcl_GetString(objv[++index]);
+                int f = facility_cli_to_code(interp, facility_s);
+                if (f == ERROR) {
+                    Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown facility specified.",-1));
+                    return ERROR;
+                }
+                status->facility = f;
+                fchanged++;
+                last_option_index = index;
+                break;
+            }   
+            case format_idx:
+            {
+                if (index == objc-1) {
+                    missing_option_value(interp,tcl_command,objv[index]);
+                    return ERROR;
+                }
+
+                const char *format_s = Tcl_GetString(objv[++index]);
+                size_t len = strlen(format_s);
+                char *copy = (char *) Tcl_Alloc(len + 1);
+                memcpy(copy,format_s,len + 1);
+                if ((status->format != NULL) && (status->format != g_default_format)) {
+                    Tcl_Free(status->format);
+                }
+                status->format = copy;
+                fchanged++;
+                last_option_index = index;
+                break;
+            }
+        }
         index++;
     }
     *last_option_p = last_option_index;
     return fchanged;
 }
-

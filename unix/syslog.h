@@ -89,14 +89,15 @@ typedef struct SyslogGlobalStatus {
 
 #endif
 
-#define ERROR       -1
+#define ERROR                 -1
+#define INVALID_OPTION        -2
+#define INVALID_OPTION_CLASS  -3
+
 #define SYSLOG_NS   "::syslog"
 
-int parse_open_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],
-                       bool open_cmd,int* last_option_p,bool *unhandled_opt,char *tcl_command);
 int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],
-                  SyslogThreadStatus* status,int* last_option_p,bool *unhandled_opt,
-                  char* tcl_command);
+                  SyslogThreadStatus* status,int* last_option_p,int *unhandled_opt,
+                  int option_class,char* tcl_command);
 
 /* facilities */
 

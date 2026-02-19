@@ -159,7 +159,7 @@ static void wrong_arguments_message (Tcl_Interp* interp,int c,Tcl_Obj *CONST86 o
     Tcl_WrongNumArgs(interp,c,objv,cmd_template);
 }
 
-static void wrong_command_option(Tcl_Interp *interp, int objc, Tcl_Obj *const objv[],char* command)
+static void wrong_command_option(Tcl_Interp *interp, int objc, Tcl_Obj *const objv[],int cli_option_idx,char* command)
 {
     Tcl_Obj* error_code_list = Tcl_NewObj();
     Tcl_Obj* command_obj = Tcl_NewStringObj(command,-1);
@@ -167,11 +167,15 @@ static void wrong_command_option(Tcl_Interp *interp, int objc, Tcl_Obj *const ob
     Tcl_IncrRefCount(command_obj);
     Tcl_IncrRefCount(error_code_list);
 
-    Tcl_ListObjAppendElement(interp, error_code_list, Tcl_NewStringObj("wrong_arguments", -1));
+    Tcl_ListObjAppendElement(interp, error_code_list, Tcl_NewStringObj("invalid_option", -1));
     Tcl_ListObjAppendElement(interp, error_code_list, Tcl_NewListObj(objc, objv)); 
     Tcl_SetObjErrorCode(interp, error_code_list);
 
-    Tcl_SetObjResult(interp, Tcl_NewStringObj("Invalid ::syslog::open option", -1));
+    Tcl_Obj* error_message = Tcl_NewStringObj("Invalid option '", -1);
+    Tcl_IncrRefCount(error_message);
+    Tcl_AppendStringsToObj(error_message,Tcl_GetString(objv[cli_option_idx]),"'",NULL);
+    Tcl_SetObjResult(interp,error_message);
+    Tcl_DecrRefCount(error_message);
 
     Tcl_Obj* info_o = Tcl_NewObj();
     Tcl_IncrRefCount(info_o);
@@ -182,26 +186,25 @@ static void wrong_command_option(Tcl_Interp *interp, int objc, Tcl_Obj *const ob
     Tcl_DecrRefCount(info_o);
     Tcl_DecrRefCount(error_code_list);
     Tcl_DecrRefCount(command_obj);
+    return;
 }
 
 static void SyslogOpen(void)
 {
-    if (g_status->opened) {
-        return;
+    if (!g_status->opened) {
+        SYSLOG_DEBUG_MSG("Calling openlog")
+        openlog(g_status->ident,g_status->options,g_status->facility);
+        g_status->opened = true;
     }
-    SYSLOG_DEBUG_MSG("Calling openlog")
-
-    openlog(g_status->ident,g_status->options,g_status->facility);
-    g_status->opened = true;
 }
 
 static void SyslogClose(void)
 {
     if (g_status->opened) {
+        SYSLOG_DEBUG_MSG("Calling closelog")
         closelog();
         g_status->opened = false;
     }
-    SYSLOG_DEBUG_MSG("Calling closelog")
 }
 
 static inline void log_message (SyslogThreadStatus* status) {
@@ -230,30 +233,41 @@ static int SyslogOpenCmd (ClientData clientData,
                           Tcl_Interp *interp,
                           int objc,Tcl_Obj *CONST86 objv[]) {
     int last_opt_index;
-    bool unhandled_open_opt = false;
+    int unhandled_open_opt = 0;
     int  tcl_exit_status = TCL_OK;
+    SyslogThreadStatus *status = get_thread_status();
 
     SYSLOG_MUTEX_LOCK
-    if (parse_open_options(interp,objc,objv,true,&last_opt_index,&unhandled_open_opt,"::syslog::open") == ERROR) {
-        tcl_exit_status = TCL_ERROR;
-        if (unhandled_open_opt) {
-            wrong_command_option(interp,objc,objv,"::syslog::open");
+    int parse_result = parse_options (interp,objc,objv,status,&last_opt_index,&unhandled_open_opt,
+                                      GLOBAL_OPTION_CLASS,"::syslog::open");
+    switch (parse_result) {
+        case ERROR:
+        {
+            tcl_exit_status = TCL_ERROR;
+            break;
         }
-    } else {
-
-        /* 
-         * Il comando ::syslog::open ammette solo options e quindi last_opt_index
-         * deve essere necessariamente == objc - 1
-         */
-
-        if (last_opt_index != objc-1) {
-            Tcl_WrongNumArgs(interp,objc,objv,
-                "open ?-ident ident? ?-facility facility? ?-pid? ?-perror? ?-nodelay? ?-console?");
-            return TCL_ERROR;
+        case INVALID_OPTION:
+        case INVALID_OPTION_CLASS:
+        {
+            wrong_command_option(interp,objc,objv,unhandled_open_opt,"::syslog::open");
+            break;
         }
+        default:
+        {
+            /* 
+             * Il comando ::syslog::open ammette solo options e quindi last_opt_index
+             * deve essere necessariamente == objc - 1
+             */
 
-        SyslogClose();
-        SyslogOpen();
+            if (last_opt_index != objc-1) {
+                Tcl_WrongNumArgs(interp,objc,objv,
+                    "open ?-ident ident? ?-facility facility? ?-pid? ?-perror? ?-nodelay? ?-console?");
+                tcl_exit_status = TCL_ERROR;
+            } else {
+                SyslogClose();
+                SyslogOpen();
+            }
+        }
     }
 
     SYSLOG_MUTEX_UNLOCK
@@ -276,21 +290,16 @@ static int SyslogConfigureCmd (ClientData clientData,
                                     int objc,Tcl_Obj *CONST86 objv[]) {
     SyslogThreadStatus *status = get_thread_status();
     int last_arg_opts = 0;
-    bool unhandled_log_opt = false;
-    if (parse_options (interp,objc, objv, status, &last_arg_opts,
-                      &unhandled_log_opt,"::syslog::configure") == ERROR) {
-        return TCL_ERROR;
-    }
     
     SYSLOG_MUTEX_LOCK
 
-    int last_open_opt = 0;
-    bool unhandled_global_opt = false;
-    status->open_changed = parse_open_options (interp,objc,objv,false,
-                                              &last_open_opt,&unhandled_global_opt,"::syslog::configure");
+    int unhandled_opt = 0;
+    status->open_changed = parse_options (interp,objc,objv,false,
+                                          &last_arg_opts,&unhandled_opt,
+                                           ALL_OPTION_CLASSES,"::syslog::configure");
 
-    if (unhandled_log_opt && unhandled_global_opt) {
-        wrong_command_option(interp,objc,objv,"::syslog::configure");
+    if (unhandled_opt) {
+        wrong_command_option(interp,objc,objv,unhandled_opt,"::syslog::configure");
         return TCL_ERROR;
     }
 
@@ -371,7 +380,7 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
      */
 
     if (objc < 2) {
-        wrong_arguments_message(interp, 1, objv,"syslog");
+        wrong_arguments_message(interp,1, objv,"syslog");
         return TCL_ERROR;
     }
 
@@ -381,12 +390,6 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
      * parse_options (log command specific option
      */
 
-    int last_arg_opts = 0;
-    bool unhandled_log_opt = false;
-    if (parse_options(interp,objc, objv, status, &last_arg_opts, &unhandled_log_opt,"syslog") == ERROR) {
-        return TCL_ERROR;
-    }
-
     /* This CLI options are checked here for compatibility but it will be removed
        in new releases requiring the socket to the syslog utility to be explicitly
        reopened with new options */
@@ -395,10 +398,19 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
 
     int tcl_exit_code = TCL_OK;
     int last_open_opt = 0;
-    bool unhandled_global_opt = false;
-    status->open_changed = parse_open_options(interp,objc,objv,false,&last_open_opt,&unhandled_global_opt,"syslog");
+    int unhandled_global_opt = 0;
+    int parse_results = parse_options(interp,objc,objv,status,
+                                         &last_open_opt,&unhandled_global_opt,
+                                         ALL_OPTION_CLASSES,"syslog");
+    if (parse_results == ERROR) {
+        return TCL_ERROR;
+    } else if (unhandled_global_opt) {
+        wrong_command_option(interp,objc,objv,unhandled_global_opt,"::syslog::log");
+        return TCL_ERROR;
+    }
 
-    int first_non_opt_arg = MAX(last_open_opt,last_arg_opts) + 1;
+    status->open_changed = parse_results;
+    int first_non_opt_arg = last_open_opt + 1;
     if (first_non_opt_arg == objc-2) {
         Tcl_Obj* level_o = objv[objc-2];
 
@@ -439,12 +451,15 @@ static int SyslogLogCmd (ClientData clientData,
         return TCL_ERROR;
     }
 
-    int last_arg_opts = 0;
-    bool unhandled_log_opt = false;
-    if (parse_options(interp,objc, objv, status,&last_arg_opts, &unhandled_log_opt,"::syslog::log") == ERROR) {
+    int last_arg_opts     = 0;
+    int unhandled_log_opt = 0;
+    int parse_result = parse_options(interp,objc, objv, status,
+                                     &last_arg_opts,&unhandled_log_opt,
+                                      PER_THREAD_OPTION_CLASS,"::syslog::log");
+    if (parse_result == ERROR) {
         return TCL_ERROR;
     } else if (unhandled_log_opt) {
-        wrong_command_option(interp,objc,objv,"::syslog::log");
+        wrong_command_option(interp,objc,objv,unhandled_log_opt,"::syslog::log");
         return TCL_ERROR;
     }
 

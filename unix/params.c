@@ -26,19 +26,6 @@
 #include "syslog.h"
 #include "params.h"
 
-const char* options[num_syslog_options+1] = {
-#define SYSLOG_OPTION_CLI(option,optcode,option_idx) [option_idx] = option,
-    SYSLOG_OPTIONS(SYSLOG_OPTION_CLI) 
-
-    (char *) NULL
-};
-
-int opt_code[num_syslog_options+1] = {
-#define SYSLOG_OPTION_CODE(option,optcode,option_idx) [option_idx] = optcode,
-    SYSLOG_OPTIONS(SYSLOG_OPTION_CODE)
-    /* Sentinel */
-    [num_syslog_options] = -1  
-};
 
 static char* levels[num_syslog_levels+1] = {
 #define SYSLOG_LEVEL_CLI(level,level_code,level_idx,n) [level_idx] = level,

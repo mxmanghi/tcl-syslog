@@ -12,7 +12,7 @@ tcl-syslog - Syslog interface for Tcl
 ```tcl
 package require syslog
 
-syslog::open ?-ident ident? ?-facility? ?-pid? ?-perror? ?-console?
+syslog::open ?-ident ident? ?-facility facility? ?-pid? ?-perror? ?-console?
 syslog::log  ?-level level? ?-format message_format? message
 syslog::isopen
 syslog::close
@@ -22,28 +22,29 @@ syslog ?-ident ident? ?-facility facility? -pid? ?-perror? level message
 
 # DESCRIPTION
 
-Syslog is a standard for forwarding log messages to local and other
-logging services available on an TCL/IP network. It is typically used for computer system
-management and security auditing; usually to aggregate log messages in a
-central repository. It is standardized within the Syslog working group of the IETF.
-Syslog is available in all POSIX compliant and POSIX-like Operating Systems.
+Syslog is a standard for forwarding log messages to local and other logging
+services available on an TCL/IP network. It is typically used for computer
+system management and security auditing; usually to aggregate log messages in a
+central repository. It is standardized within the Syslog working group of the
+IETF. Syslog is available in all POSIX compliant and POSIX-like Operating
+Systems.
 
-This package provides a Tcl interface to the standard *syslog* service.
-It creates a Tcl namespace with commands for opening and closing the 
-connection to the syslogd facility, sending messages to the syslog service
-and query the connection status. It's supposed to provide local and remote
-logging.
+This package provides a Tcl interface to the standard *syslog* service.  It
+creates a Tcl namespace with commands for opening and closing the connection to
+the syslogd facility, sending messages to the syslog service and query the
+connection status. It's supposed to provide local and remote logging.
 
-The current version provides also the global namespace command *syslog* for compatibility
-with earlier versions of the package which it's been revamped and extended to focus on resource 
-consumption, computational overheads and multi-threading programming
+The current version provides also the global namespace command *syslog* for
+compatibility with earlier versions of the package which it's been revamped and
+extended to focus on resource consumption, computational overheads and
+multi-threading programming
 
 # GLOBAL PER PROCESS OPTIONS
 
 The syslog facility is available to any process by calling the *syslog* command.
 If a connection to the *syslog* facility hasn't been already established
-*syslog* does it implicitly by calling *openlog*. Even though this is handy 
-and preserved in *tcl-syslog*, calling openlog is meaninful if done just once at
+*syslog* does it implicitly by calling *openlog*. Even though this is handy and
+preserved in *tcl-syslog*, calling openlog is meaninful if done just once at
 process startup. It's connection parameters are process-wide and shared among
 threads. For this purpose this version of the package implements three new
 command *::syslog::open*, *::syslog::close* and *::syslog::isopen*.

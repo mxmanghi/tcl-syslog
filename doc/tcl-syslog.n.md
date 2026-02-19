@@ -1,6 +1,6 @@
 title: tcl-syslog
 section: n
-date: 1.3.0
+date: 2.0.0
 source: Tcl-Extensions
 
 # NAME

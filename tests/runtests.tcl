@@ -15,12 +15,16 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+package require fileutil
+
 set auto_path [concat "." $auto_path]
+
+set version [string trim [::fileutil::cat [file join .. VERSION]]]
 
 package require tcltest
 #package require syslog
 
-load ../libtcl9syslog1.3.0.so
+load ../libtcl9syslog${version}.so
 
 source [file join [file dirname [info script]] harness.tcl]
 

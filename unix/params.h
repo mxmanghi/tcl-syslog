@@ -65,18 +65,29 @@
 	X("info",LOG_INFO,log_info_idx,6) \
 	X("debug",LOG_DEBUG,log_debug_idx,7)
 
+#define NOOPT -1
+
+#define    GLOBAL_OPTION_CLASS         (int)1
+#define    PER_THREAD_OPTION_CLASS     (int)2
+#define    ALL_OPTION_CLASSES          (int)3
+
 #define SYSLOG_OPTIONS(X) \
-    X("-pid",LOG_PID,log_pid_idx) \
-    X("-perror",LOG_PERROR,log_perror_idx) \
-    X("-console",LOG_CONS,log_cons_idx) \
-    X("-nodelay",LOG_NDELAY,log_ndelay_idx)
+    X("-pid",LOG_PID,log_pid_idx,GLOBAL_OPTION_CLASS) \
+    X("-perror",LOG_PERROR,log_perror_idx,GLOBAL_OPTION_CLASS) \
+    X("-console",LOG_CONS,log_console_idx,GLOBAL_OPTION_CLASS) \
+    X("-nodelay",LOG_NDELAY,log_ndelay_idx,GLOBAL_OPTION_CLASS) \
+    X("-ident",NOOPT,ident_idx,GLOBAL_OPTION_CLASS) \
+    X("-facility",NOOPT,facility_idx,ALL_OPTION_CLASSES) \
+    X("-priority",NOOPT,priority_idx,PER_THREAD_OPTION_CLASS) \
+    X("-level",NOOPT,level_idx,PER_THREAD_OPTION_CLASS) \
+    X("-format",NOOPT,format_idx,PER_THREAD_OPTION_CLASS)
 
 /* these enums just provide a way to count how many
  * elements for each parameter exist
  */
 
 enum SyslogOptions {
-#define SYSLOG_OPTIONS_IDX(option,optcode,option_idx) option_idx,
+#define SYSLOG_OPTIONS_IDX(option,optcode,option_idx,option_class) option_idx,
     SYSLOG_OPTIONS(SYSLOG_OPTIONS_IDX)
     num_syslog_options
 };
