@@ -1,4 +1,4 @@
-#!/usr/bin/tclsh9.0
+#!/usr/bin/tclsh
 
 #    Copyright (C) 2026 Massimo Manghi <mxmanghi@apache.org>
 #
@@ -18,13 +18,13 @@
 package require fileutil
 
 set auto_path [concat "." $auto_path]
-
 set version [string trim [::fileutil::cat [file join .. VERSION]]]
 
 package require tcltest
+package require harness
 #package require syslog
 
-load ../libtcl9syslog${version}.so
+load ../libsyslog${version}.so
 
 source [file join [file dirname [info script]] harness.tcl]
 

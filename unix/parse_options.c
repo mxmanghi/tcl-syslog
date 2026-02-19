@@ -25,6 +25,9 @@
 
 extern SyslogGlobalStatus *g_status;
 extern char* g_default_format;
+extern int opt_class[];
+extern int opt_code[];
+extern const char* options[];
 
 static void missing_option_value (Tcl_Interp* interp,char* cmd,Tcl_Obj* option)
 {
@@ -52,32 +55,6 @@ static void missing_option_value (Tcl_Interp* interp,char* cmd,Tcl_Obj* option)
     Tcl_DecrRefCount(info_message);
     Tcl_DecrRefCount(error_code_list);
 }
-
-/*
- * parse_open_options
- *
- */
-
-const char* options[num_syslog_options+1] = {
-#define SYSLOG_OPTION_CLI(option,optcode,option_idx,opt_class) [option_idx] = option,
-    SYSLOG_OPTIONS(SYSLOG_OPTION_CLI) 
-    /* Sentinel */
-    (char *) NULL
-};
-
-int opt_code[num_syslog_options+1] = {
-#define SYSLOG_OPTION_CODE(option,optcode,option_idx,opt_class) [option_idx] = optcode,
-    SYSLOG_OPTIONS(SYSLOG_OPTION_CODE)
-    /* Sentinel */
-    [num_syslog_options] = -1  
-};
-
-int opt_class[num_syslog_options+1] = {
-#define SYSLOG_OPTION_CLASS(option,optcode,option_idx,opt_class) [option_idx] = opt_class,
-    SYSLOG_OPTIONS(SYSLOG_OPTION_CLASS)
-    /* Sentinel */
-    [num_syslog_options] = 0
-};
 
 /*
  * parse_options

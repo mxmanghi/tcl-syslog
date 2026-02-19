@@ -22,6 +22,8 @@
 #ifndef __params_h__
 #define __params_h__
 
+#include <syslog.h>
+
 /* X-macro based database of facilities and levels
  *
  * The tables define 2 arrays for facilities and levels

@@ -168,12 +168,11 @@ static void wrong_arguments_message (Tcl_Interp* interp,int c,Tcl_Obj *CONST86 o
     Tcl_WrongNumArgs(interp,c,objv,cmd_template);
 }
 
-static void wrong_command_option(Tcl_Interp *interp, int objc, Tcl_Obj *const objv[],int cli_option_idx,char* command)
+static void wrong_command_option(Tcl_Interp *interp, int objc, Tcl_Obj *const objv[],int cli_option_idx)
 {
     Tcl_Obj* error_code_list = Tcl_NewObj();
-    Tcl_Obj* command_obj = Tcl_NewStringObj(command,-1);
+    const char* command = Tcl_GetString(objv[0]);
 
-    Tcl_IncrRefCount(command_obj);
     Tcl_IncrRefCount(error_code_list);
 
     Tcl_ListObjAppendElement(interp, error_code_list, Tcl_NewStringObj("invalid_option", -1));
@@ -194,7 +193,6 @@ static void wrong_command_option(Tcl_Interp *interp, int objc, Tcl_Obj *const ob
 
     Tcl_DecrRefCount(info_o);
     Tcl_DecrRefCount(error_code_list);
-    Tcl_DecrRefCount(command_obj);
     return;
 }
 
@@ -252,7 +250,7 @@ static int SyslogOpenCmd (ClientData clientData,
         case INVALID_OPTION:
         case INVALID_OPTION_CLASS:
         {
-            wrong_command_option(interp,objc,objv,pao.unhandled_opt_index,"::syslog::open");
+            wrong_command_option(interp,objc,objv,pao.unhandled_opt_index);
             break;
         }
         default:
@@ -301,7 +299,7 @@ static int SyslogConfigureCmd (ClientData clientData,
     if (opt_changed == ERROR) {
         tcl_exit_status = TCL_ERROR;
     } else if (pao.unhandled_opt_index > 0) {
-        wrong_command_option(interp,objc,objv,pao.unhandled_opt_index,"::syslog::configure");
+        wrong_command_option(interp,objc,objv,pao.unhandled_opt_index);
         tcl_exit_status = TCL_ERROR;
     } else if (pao.modified_opt_class & GLOBAL_OPTION_CLASS) {
         SyslogClose();
@@ -316,6 +314,8 @@ static int SyslogCGetCmd (ClientData clientData,
                                     Tcl_Interp *interp,
                                     int objc,Tcl_Obj *CONST86 objv[]) {
     if (objc == 2) {
+        extern int opt_code[];
+        extern const char* options[];
         char* argument = Tcl_GetString(objv[1]);
         if (strcmp(argument,"-global") == 0) {
             Tcl_Obj* global_conf = Tcl_NewObj();
@@ -336,8 +336,7 @@ static int SyslogCGetCmd (ClientData clientData,
             int opt;
             for (opt = 0; opt < num_syslog_options; opt++)
             {
-                extern int* opt_code;
-                extern const char** options;
+                if (opt_code[opt] == NOOPT) { continue; }
                 if ((g_status->options & opt_code[opt]) != 0)
                 {
                     Tcl_ListObjAppendElement(interp,global_conf,Tcl_NewStringObj(options[opt],-1));
@@ -348,7 +347,10 @@ static int SyslogCGetCmd (ClientData clientData,
             SYSLOG_MUTEX_UNLOCK
             Tcl_DecrRefCount(global_conf);
             return TCL_OK;
-        } 
+        } else {
+            wrong_command_option(interp,objc,objv,1);
+            return TCL_ERROR;
+        }
     }
 
     SyslogThreadStatus *status = (SyslogThreadStatus *) Tcl_GetThreadData(&syslogKey, sizeof(SyslogThreadStatus));
@@ -403,7 +405,7 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
     if (parse_results == ERROR) {
         tcl_exit_code = TCL_ERROR;
     } else if (pao.unhandled_opt_index) {
-        wrong_command_option(interp,objc,objv,pao.unhandled_opt_index,Tcl_GetString(objv[0]));
+        wrong_command_option(interp,objc,objv,pao.unhandled_opt_index);
         tcl_exit_code = TCL_ERROR;
     } else {
         if (pao.modified_opt_class & GLOBAL_OPTION_CLASS) {
@@ -455,10 +457,10 @@ static int SyslogLogCmd (ClientData clientData,
     if (parse_result == ERROR) {
         return TCL_ERROR;
     } else if (pao.unhandled_opt_index > 0) {
-        wrong_command_option(interp,objc,objv,pao.unhandled_opt_index,"::syslog::log");
+        wrong_command_option(interp,objc,objv,pao.unhandled_opt_index);
         return TCL_ERROR;
     } else if (pao.modified_opt_class & GLOBAL_OPTION_CLASS) {
-        wrong_command_option(interp,objc,objv,pao.unhandled_opt_index,"::syslog::log");
+        wrong_command_option(interp,objc,objv,pao.unhandled_opt_index);
         return TCL_ERROR;
     }
 

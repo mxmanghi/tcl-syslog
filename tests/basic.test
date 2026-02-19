@@ -4,19 +4,21 @@ package require syslog
 ::tcltest::test syslog-template-1.0 {literal payload roundtrip via test server} \
     -constraints hasSyslogWatcher \
     -body {
+        puts "pwd: [pwd]"
+        package require harness
         set msg "${::base}-literal"
         syslog -pid -ident test_ident -facility local2 critical $msg
-        set hit [::syslogtest::harness::waitForLiteral $msg 8000]
+        set hit [::syslogtest::harness::wait_for_response $msg 8000]
         expr {[dict get $hit payload] eq $msg}
     } -result 1
 
 ::tcltest::test syslog-template-1.1 {regexp payload match via test server} \
     -constraints hasSyslogWatcher \
     -body {
+        package require harness
         set msg "${::base}-regexp seq=42"
         syslog -pid -ident test_ident -facility local2 notice $msg
-        set hit [::syslogtest::harness::waitForRegexp {seq=[0-9]+} 8000]
+        set hit [::syslogtest::harness::wait_for_response {seq=[0-9]+} 8000 regexp]
         regexp -- {seq=42} [dict get $hit payload]
     } -result 1
-
 

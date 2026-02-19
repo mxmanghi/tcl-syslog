@@ -20,8 +20,33 @@
  */
 
 #include "syslog.h"
+#include "params.h"
 
 SyslogGlobalStatus *g_status = NULL;
 char* g_default_format = "%s";
 
+/*
+ * parse_open_options
+ *
+ */
 
+const char* options[num_syslog_options+1] = {
+#define SYSLOG_OPTION_CLI(option,optcode,option_idx,opt_class) [option_idx] = option,
+    SYSLOG_OPTIONS(SYSLOG_OPTION_CLI) 
+    /* Sentinel */
+    (char *) NULL
+};
+
+int opt_code[num_syslog_options+1] = {
+#define SYSLOG_OPTION_CODE(option,optcode,option_idx,opt_class) [option_idx] = optcode,
+    SYSLOG_OPTIONS(SYSLOG_OPTION_CODE)
+    /* Sentinel */
+    [num_syslog_options] = -1  
+};
+
+int opt_class[num_syslog_options+1] = {
+#define SYSLOG_OPTION_CLASS(option,optcode,option_idx,opt_class) [option_idx] = opt_class,
+    SYSLOG_OPTIONS(SYSLOG_OPTION_CLASS)
+    /* Sentinel */
+    [num_syslog_options] = 0
+};

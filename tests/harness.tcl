@@ -1,10 +1,10 @@
 
 namespace eval ::syslogtest::harness {
-    variable channel            ""
-    variable server_pid         ""
-    variable log_file           ""
-    variable server_script      [file join [file dirname [info script]] server.tcl]
-    variable server_port        8888
+    variable channel       ""
+    variable server_pid    ""
+    variable log_file      ""
+    variable server_script [file join [file dirname [info script]] server.tcl]
+    variable server_port   8888
 }
 
 proc ::syslogtest::harness::request {args} {
@@ -116,7 +116,7 @@ proc ::syslogtest::harness::stop {} {
     set log_file ""
 }
 
-proc ::syslogtest::harness::wait_for_response {text {pattern_type literal} {timeoutMs 5000}} {
+proc ::syslogtest::harness::wait_for_response {text {timeoutMs 5000} {pattern_type literal}} {
     set response [request wait $pattern_type $text $timeoutMs]
     return [dict create \
         raw [lindex $response 0] \
@@ -124,3 +124,4 @@ proc ::syslogtest::harness::wait_for_response {text {pattern_type literal} {time
         timestamp_kind [lindex $response 2]]
 }
 
+package provide harness 1.0
