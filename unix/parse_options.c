@@ -84,20 +84,17 @@ int opt_class[num_syslog_options+1] = {
  *
  */
 
-int parse_options (Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],
-                    SyslogThreadStatus* status, int* last_option_p, int *unhandled_opt,
-                    int option_class,char* tcl_command) {
-
+int parse_options (Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],ParseArgsOptions* pao)
+{
     int  index    = 1;
     int  fchanged = 0;
-    int  last_option_index = 0;
     int  option_idx;
+    char* tcl_command = Tcl_GetString(objv[0]);
 
-    *unhandled_opt = 0;
-    status->facility = -1;
-    if (status->format != g_default_format) {
-        Tcl_Free(status->format);
-        status->format = (char *) g_default_format;
+    pao->status->facility = -1;
+    if (pao->status->format != g_default_format) {
+        Tcl_Free(pao->status->format);
+        pao->status->format = (char *) g_default_format;
     }
 
     while (index < objc) {
@@ -117,25 +114,25 @@ int parse_options (Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],
                     missing_option_value(interp,tcl_command,objv[index]);
                     return ERROR;
                 }
-                *last_option_p = last_option_index;
                 return fchanged;
             } else if (argument[0] == '-') {
-                *unhandled_opt = index;
+                pao->unhandled_opt_index = index;
                 return INVALID_OPTION;
             } else {
 
                 /* we hit a log message or log facility argument */
 
-                *last_option_p = last_option_index;
                 return fchanged;
             }
             
         }
 
-        if ((opt_class[option_idx] & option_class) == 0) {
-            *unhandled_opt = index;
+        if ((opt_class[option_idx] & pao->option_class) == 0) {
+            pao->unhandled_opt_index = index;
             return INVALID_OPTION_CLASS;
         }
+
+        pao->modified_opt_class |= opt_class[option_idx];
 
         switch (option_idx) {
             case ident_idx:
@@ -154,35 +151,35 @@ int parse_options (Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],
                 }
                 g_status->ident = copy;
                 fchanged++;
-                last_option_index = index;
+                pao->last_option_index = index;
                 break;
             }
             case log_ndelay_idx:
             {
                 g_status->options = g_status->options | LOG_NDELAY;
                 fchanged++;
-                last_option_index = index;
+                pao->last_option_index = index;
                 break;
             }
             case log_console_idx:
             {
                 g_status->options = g_status->options | LOG_CONS;
                 fchanged++;
-                last_option_index = index;
+                pao->last_option_index = index;
                 break;
             }
             case log_pid_idx:
             {
                 g_status->options = g_status->options | LOG_PID;
                 fchanged++;
-                last_option_index = index;
+                pao->last_option_index = index;
                 break;
             }
             case log_perror_idx:
             {
                 g_status->options = g_status->options | LOG_PERROR;
                 fchanged++;
-                last_option_index = index;
+                pao->last_option_index = index;
                 break;
             }
             case priority_idx:
@@ -199,9 +196,9 @@ int parse_options (Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],
                     Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown level specified.",-1));
                     return ERROR;
                 }
-                status->level = p;
+                pao->status->level = p;
                 fchanged++;
-                last_option_index = index;
+                pao->last_option_index = index;
                 break;
             }
             case facility_idx:
@@ -217,9 +214,9 @@ int parse_options (Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],
                     Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown facility specified.",-1));
                     return ERROR;
                 }
-                status->facility = f;
+                pao->status->facility = f;
                 fchanged++;
-                last_option_index = index;
+                pao->last_option_index = index;
                 break;
             }   
             case format_idx:
@@ -233,17 +230,16 @@ int parse_options (Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],
                 size_t len = strlen(format_s);
                 char *copy = (char *) Tcl_Alloc(len + 1);
                 memcpy(copy,format_s,len + 1);
-                if ((status->format != NULL) && (status->format != g_default_format)) {
-                    Tcl_Free(status->format);
+                if ((pao->status->format != NULL) && (pao->status->format != g_default_format)) {
+                    Tcl_Free(pao->status->format);
                 }
-                status->format = copy;
+                pao->status->format = copy;
                 fchanged++;
-                last_option_index = index;
+                pao->last_option_index = index;
                 break;
             }
         }
         index++;
     }
-    *last_option_p = last_option_index;
     return fchanged;
 }

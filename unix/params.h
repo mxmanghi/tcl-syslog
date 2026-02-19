@@ -67,10 +67,6 @@
 
 #define NOOPT -1
 
-#define    GLOBAL_OPTION_CLASS         (int)1
-#define    PER_THREAD_OPTION_CLASS     (int)2
-#define    ALL_OPTION_CLASSES          (int)3
-
 #define SYSLOG_OPTIONS(X) \
     X("-pid",LOG_PID,log_pid_idx,GLOBAL_OPTION_CLASS) \
     X("-perror",LOG_PERROR,log_perror_idx,GLOBAL_OPTION_CLASS) \

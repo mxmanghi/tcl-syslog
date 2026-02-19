@@ -52,6 +52,7 @@ typedef bool _Bool;
 #else
 #define SYSLOG_DEBUG_MSG(s)
 #endif
+
 typedef struct SyslogThreadStatus {
     char*   format;
     int     level;
@@ -72,6 +73,19 @@ typedef struct SyslogGlobalStatus {
     bool    opened;
 } SyslogGlobalStatus;
 
+#define    GLOBAL_OPTION_CLASS         (int)1
+#define    PER_THREAD_OPTION_CLASS     (int)2
+#define    ALL_OPTION_CLASSES          (int)3
+
+typedef int OptionClass;
+
+typedef struct _ParseArgsOptions {
+    SyslogThreadStatus* status;
+    int                 last_option_index;
+    int                 unhandled_opt_index;
+    OptionClass         option_class;
+    OptionClass         modified_opt_class;
+} ParseArgsOptions;
 
 #ifdef TCL_THREADS
 
@@ -95,9 +109,7 @@ typedef struct SyslogGlobalStatus {
 
 #define SYSLOG_NS   "::syslog"
 
-int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],
-                  SyslogThreadStatus* status,int* last_option_p,int *unhandled_opt,
-                  int option_class,char* tcl_command);
+int parse_options(Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],ParseArgsOptions* pao);
 
 /* facilities */
 
