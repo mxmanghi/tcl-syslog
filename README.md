@@ -1,126 +1,193 @@
-# tcl-syslog
+# tcl-syslog 2.0.0
 
-Simple Tcl interface to the Unix syslog facility
+tcl-syslog - Syslog interface for Tcl
 
-    package require syslog
+# SYNOPSIS
 
-    syslog -facility my_application info "...an informational message to be sent to syslog"
+```tcl
+package require syslog
 
+syslog::open ?-ident ident? ?-facility facility? ?-pid? ?-perror? ?-console?
+syslog::log  ?-level level? ?-format message_format? message
+syslog::isopen
+syslog::close
 
-This package was originally written in 2008 Alexandros Stergiakis and adopted in 2024 by
-Massimo Manghi since the author is unresponsive at the email declared in the documentation.
+syslog ?-ident ident? ?-facility facility? -pid? ?-perror? level message
+```
 
-See COPYING for a legal notice recognizing the original authorship
+# DESCRIPTION
+
+Syslog is a standard for forwarding log messages to local and other logging
+services available on an TCL/IP network. It is typically used for computer
+system management and security auditing; usually to aggregate log messages in a
+central repository. It is standardized within the Syslog working group of the
+IETF. Syslog is available in all POSIX compliant and POSIX-like Operating
+Systems.
+
+This package provides a Tcl interface to the standard *syslog* service.  It
+creates a Tcl namespace with commands for opening and closing the connection to
+the syslogd facility, sending messages to the syslog service and query the
+connection status. It's supposed to provide local and remote logging.
+
+The current version provides also the global namespace command *syslog* for
+compatibility with earlier versions of the package which it's been revamped and
+extended to focus on resource consumption, computational overheads and
+multi-threading programming
+
+# GLOBAL PER PROCESS OPTIONS
+
+The syslog facility is available to any process by calling the *syslog* command.
+If a connection to the *syslog* facility hasn't been already established
+*syslog* does it implicitly by calling *openlog*. Even though this is handy and
+preserved in *tcl-syslog*, calling openlog is meaninful if done just once at
+process startup. It's connection parameters are process-wide and shared among
+threads. For this purpose this version of the package implements three new
+command *::syslog::open*, *::syslog::close* and *::syslog::isopen*.
+::syslog::open accept options to be passed to *openlog* which are supposed to
+not change for the process lifetime. Actual logging is done through command
+::syslog::log* which in turn accept its own set of options. Option to be passed
+to *::syslog::open* are
+
+- `-ident` *ident* is an optional string argument that is used by syslog to
+differentiate between processes and log contexts. It is up to the user to
+specify any string here. 
+
+- `-pid` sets up syslog to print also the process pid in the log message. This
+options is most efficiently used as argument to 
+
+- `-perror` prints the message also to stderr.
+
+- `-nodelay` the connection to the *syslog* facility is done right away instead
+  of waiting for the first message to be issued
+
+- `-facility` *facility* is an optional string dictated by syslog, and
+categorizes the entity that logs the message, in the following
+categories/facilities:
 
 ```
-# tcl-syslog(n) - Syslog interface for Tcl
-
-Tcl-Extensions, 1.2.5
-
-package require syslog 
- syslog ?-ident ident? ?-facility facility? ?-pid? ?-perror? priority message
-Returns: nothing
-
-# Description
-
-This project provides a Tcl interface to the standard *nix syslog service. It implements a Tcl package that exports the full functionality of the underlying syslog facility to the Tcl programming language. This includes local and remote logging.
-
-Syslog is a standard for forwarding log messages in an IP network. It is also used to refer to the implementation of this standard and API, that supports both remote and local logging. It is typically used for computer system management and security auditing; usually to aggregate log messages in a central repository. It is standardized within the Syslog working group of the IETF.
-
-Syslog is available in all POSIX compliant and POSIX-like Operating Systems.
-
-_-ident_ is a optional string argument that is used by syslog to 
-differentiate between processes and log contexts. It is up to the user 
-to specify any string here.
-
-_-pid_ prints also the process pid in the log message
-
-_-perror_ prints the message also to stderr
-
-_-facility_ is an optional string dictated by syslog, and categorizes
-the entity that logs the message, in the following categories/facilities:  
-           Facility    Description
-           auth        security/authorization messages
-           authpriv    security/authorization messages (private)
-           cron        clock daemon (cron and at)
-           daemon      system daemons without separate facility value
-           ftp         ftp daemon
-           kern        kernel messages
-           local[0-7]  local0 to local7 are reserved for local use
-           lpr         line printer subsystem
-           mail        mail subsystem
-           news        USENET news subsystem
-           syslog      messages generated internally by syslogd(8)
-           user        generic user-level messages
-           uucp        UUCP subsystem
-    
-    The default facility is "user".
-    
-    priority is another string dictated by syslog, that describes
-    the severity of the message. In order of higher to lower severity, the
-    possible strings are:  
-
-           Priority    Description
-           emergency   system is unusable
-           alert       action must be taken immediately
-           critical    critical conditions
-           error       error conditions
-           warning     warning conditions
-           notice      normal, but significant, condition
-           info        informational message
-           debug       debug-level message
-    
-    This argument is mandatory.
-
-#   EXAMPLE
-
-    package require syslog
-    
-    syslog critical "Message 1"
-    syslog -ident tclsh warning "Message 2"
-    syslog -facility local0 notice "Message 3"
-    syslog -ident tclsh -facility user error "Message 4"
-    syslog -pid critical "Message 5.0"
-    syslog -pid -ident tclsh critical "Message 5.1"
-    syslog -pid -facility local0 debug "Message 5.1"
-    syslog -pid -facility local1 -ident tclsh info "Message 5.2"
-    syslog -pid -ident tclsh -facility local2 warning "Message 5.3"
-    
-    Outputs in /var/log/syslog (syslog timestamps and line prefix removed) :
-    
-     tclsh: Message 1
-     tclsh: Message 2
-     tclsh: Message 3
-     testident: Message 4
-     tclsh[7049]: Message 5.0
-     my_ident[7049]: Message 5.1
-     tclsh[7049]: Message 5.1
-     my_ident[7049]: Message 5.2
-     my_ident[7049]: Message 5.3
-
-#   DOCUMENTATION
-
-    The package provides the *tcl-syslog* man page.
-
-#   AUTHORS
-
-    Alexandros Stergiakis sterg@kth.se  
-    Massimo Manghi mxmanghi@apache.org
-#   COPYRIGHT
-    
-    Copyright (C) 2008  Alexandros Stergiakis  
-    Copyright (C) 2024  Massimo Manghi
-    
-    This program is free software: you can redistribute it and/or   
-    modify it under the terms of the GNU General Public License as   
-    published by the Free Software Foundation, either version 3 of   
-    the License, or (at your option) any later version.
-    
-    This program is distributed in the hope that it will be useful,  
-    but WITHOUT ANY WARRANTY; without even the implied warranty of  
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the  
-    GNU General Public License for more details.
-    
-    You should have received a copy of the GNU General Public License  
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+Facility    Description
+auth        security/authorization messages
+authpriv    security/authorization messages (private)
+cron        clock daemon (cron and at)
+daemon      system daemons without separate facility value
+ftp         ftp daemon
+kern        kernel messages
+local[0-7]  local0 to local7 are reserved for local use
+lpr         line printer subsystem
+mail        mail subsystem
+news        USENET news subsystem
+syslog      messages generated internally by syslogd(8)
+user        generic user-level messages
+uucp        UUCP subsystem
 ```
+
+The default facility is `"user"`.
+
+# LOGGING AND PER THREAD CONNECTION OPTIONS
+
+Command *::syslog::log* is the command for logging. The following options can be
+specified.
+
+ - `-level' *level* describes the severity of the message. In order to control the message level possible arguments are:
+
+```
+Priority    Description
+emergency   system is unusable
+alert       action must be taken immediately
+critical    critical conditions
+error       error conditions
+warning     warning conditions
+notice      normal, but significant, condition
+info        informational message
+debug       debug-level message
+```
+the default level is *info*
+
+ - `-priority` the priority argument is equivalent to `-level`
+
+ - `-format` provides a limited support for the *syslog* formatting argument. For
+  this argument to be meaningful it must be a string where somewhere the '%s'
+string qualifier must appear. A full support will be provided in future releases.
+
+ - `-facility` is the same argument accepted by command
+
+# OPTIONS INTERNAL HANDLING
+
+The *::syslog::open* and *::syslog::log* options become persistent across
+subsequent calls. Whereas *::syslog::log* options status is interpreter/thread
+private *::syslog::open* calls change the per-process global status of a
+connection that needs to be reset on every call. A sensible approach using
+the *syslog* package is therefore to call once *::syslog::open* for every
+process and then call *::syslog::log* with 
+
+# EXAMPLE
+
+```tcl
+package require syslog
+
+::syslog::open -ident myapp -facility local0 -pid
+::syslog::log -level info "An info message..."
+#equivalently
+::syslog::log info "An info message...."
+::syslog::log -facility user info "Info message 2...."
+#subsequent calls to log message preserve the state
+#of the last call and options can be omitted
+::syslog::log "Info message 3...."
+
+
+# COMPATIBILITY
+
+The global space command *syslog* is provided for compatibility but it's
+deprecated because it potentially generates much overhead calling *openlog*
+every time. This command accepts the whole set of the *::syslog::log* and
+::syslog::open*
+
+```tcl
+package require syslog
+
+syslog critical "Message 1"
+syslog -ident tclsh warning "Message 2"
+syslog -facility local0 notice "Message 3"
+syslog -ident tclsh -facility user error "Message 4"
+syslog -pid critical "Message 5.0"
+syslog -pid -ident tclsh critical "Message 5.1"
+syslog -pid -facility local0 debug "Message 5.1"
+syslog -pid -facility local1 -ident tclsh info "Message 5.2"
+syslog -pid -ident tclsh -facility local2 warning "Message 5.3"
+```
+
+Outputs in `/var/log/syslog` (syslog timestamps and line prefix removed):
+
+```
+tclsh: Message 1
+tclsh: Message 2
+tclsh: Message 3
+testident: Message 4
+tclsh[7049]: Message 5.0
+my_ident[7049]: Message 5.1
+tclsh[7049]: Message 5.1
+my_ident[7049]: Message 5.2
+my_ident[7049]: Message 5.3
+```
+
+# AUTHORS
+
+- Alexandros Stergiakis <sterg@kth.se>
+- Massimo Manghi <mxmanghi@apache.org>
+
+# COPYRIGHT
+
+Copyright (C) 2008 Alexandros Stergiakis  
+Copyright (C) 2024-2026 Massimo Manghi
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program. If not, see <http://www.gnu.org/licenses/>.
