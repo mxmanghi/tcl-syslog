@@ -1,6 +1,6 @@
 title: tcl-syslog
 section: n
-date: 2.0.0
+date: 1.3.0
 source: Tcl-Extensions
 
 # NAME
@@ -12,62 +12,61 @@ tcl-syslog - Syslog interface for Tcl
 ```tcl
 package require syslog
 
-syslog::open ?-ident ident? ?-facility facility? ?-pid? ?-perror? ?-console?
-syslog::log  ?-level level? ?-format message_format? message
-syslog::isopen
-syslog::close
+::syslog::open ?-ident ident? ?-facility facility? ?-pid? ?-perror? ?-console? ?-nodelay?
+::syslog::close
+::syslog::log ?-level level? ?-priority level? ?-facility facility? ?-format message_format? message
+::syslog::configure ?-ident ident? ?-facility facility? ?-pid? ?-perror? ?-console? ?-nodelay?
+::syslog::configure ?-level level? ?-priority level? ?-facility facility? ?-format message_format?
+::syslog::cget
+::syslog::cget -global
 
-syslog ?-ident ident? ?-facility facility? -pid? ?-perror? level message
+syslog ?-ident ident? ?-facility facility? ?-pid? ?-perror? ?-console? ?-nodelay? ?-level level? message
 ```
 
 # DESCRIPTION
 
 Syslog is a standard for forwarding log messages to local and other logging
-services available on an TCL/IP network. It is typically used for computer
+services available on a TCP/IP network. It is typically used for computer
 system management and security auditing; usually to aggregate log messages in a
 central repository. It is standardized within the Syslog working group of the
 IETF. Syslog is available in all POSIX compliant and POSIX-like Operating
 Systems.
 
-This package provides a Tcl interface to the standard *syslog* service.  It
+This package provides a Tcl interface to the standard *syslog* service. It
 creates a Tcl namespace with commands for opening and closing the connection to
-the syslogd facility, sending messages to the syslog service and query the
-connection status. It's supposed to provide local and remote logging.
+syslogd, sending messages to the syslog service, and querying configuration.
 
-The current version provides also the global namespace command *syslog* for
-compatibility with earlier versions of the package which it's been revamped and
-extended to focus on resource consumption, computational overheads and
-multi-threading programming
+The current version also provides the global namespace command *syslog* for
+compatibility with earlier versions of the package. It is deprecated and kept
+only for backward compatibility.
 
-# GLOBAL PER PROCESS OPTIONS
+# COMMANDS
 
-The syslog facility is available to any process by calling the *syslog* command.
-If a connection to the *syslog* facility hasn't been already established
-*syslog* does it implicitly by calling *openlog*. Even though this is handy and
-preserved in *tcl-syslog*, calling openlog is meaninful if done just once at
-process startup. It's connection parameters are process-wide and shared among
-threads. For this purpose this version of the package implements three new
-command *::syslog::open*, *::syslog::close* and *::syslog::isopen*.
-::syslog::open accept options to be passed to *openlog* which are supposed to
-not change for the process lifetime. Actual logging is done through command
-::syslog::log* which in turn accept its own set of options. Option to be passed
-to *::syslog::open* are
+## ::syslog::open
 
-- `-ident` *ident* is an optional string argument that is used by syslog to
-differentiate between processes and log contexts. It is up to the user to
-specify any string here. 
+Establish the process-wide connection to the syslog facility (calls *openlog*).
+This command should be called once per process (typically at startup). Options
+set here are global and shared among threads.
 
-- `-pid` sets up syslog to print also the process pid in the log message. This
-options is most efficiently used as argument to 
+Options:
 
-- `-perror` prints the message also to stderr.
+- `-ident` *ident*  
+  Optional tag used by syslog to identify the process or log context.
 
-- `-nodelay` the connection to the *syslog* facility is done right away instead
-  of waiting for the first message to be issued
+- `-pid`  
+  Include the process ID in each syslog message.
 
-- `-facility` *facility* is an optional string dictated by syslog, and
-categorizes the entity that logs the message, in the following
-categories/facilities:
+- `-perror`  
+  Print the message also to stderr.
+
+- `-console`  
+  Write directly to the system console if syslogd is unavailable.
+
+- `-nodelay`  
+  Open the connection immediately instead of waiting for the first message.
+
+- `-facility` *facility*  
+  Set the default facility for this process. Valid facilities are:
 
 ```
 Facility    Description
@@ -77,7 +76,14 @@ cron        clock daemon (cron and at)
 daemon      system daemons without separate facility value
 ftp         ftp daemon
 kern        kernel messages
-local[0-7]  local0 to local7 are reserved for local use
+local0      local use (0)
+local1      local use (1)
+local2      local use (2)
+local3      local use (3)
+local4      local use (4)
+local5      local use (5)
+local6      local use (6)
+local7      local use (7)
 lpr         line printer subsystem
 mail        mail subsystem
 news        USENET news subsystem
@@ -86,14 +92,24 @@ user        generic user-level messages
 uucp        UUCP subsystem
 ```
 
-The default facility is `"user"`.
+The default facility is `user`.
 
-# LOGGING AND PER THREAD CONNECTION OPTIONS
+## ::syslog::close
 
-Command *::syslog::log* is the command for logging. The following options can be
-specified.
+Close the process-wide connection to syslog (calls *closelog*). It is safe to
+call this multiple times, but unwise if the code is supposed to log more
+lines. It will work, but it comes at the cost of re-establishing the connection
+to the syslog service
 
- - `-level' *level* describes the severity of the message. In order to control the message level possible arguments are:
+## ::syslog::log
+
+Send a log message. Options set here are per-thread (interpreter-local) and
+persist across subsequent calls in the same thread.
+
+Options:
+
+- `-level` *level*  
+  Describe the severity of the message. Valid levels are:
 
 ```
 Priority    Description
@@ -106,46 +122,71 @@ notice      normal, but significant, condition
 info        informational message
 debug       debug-level message
 ```
-the default level is *info*
 
- - `-priority` the priority argument is equivalent to `-level`
+The default level is `info`.
 
- - `-format` provides a limited support for the *syslog* formatting argument. For
-  this argument to be meaningful it must be a string where somewhere the '%s'
-string qualifier must appear. A full support will be provided in future releases.
+- `-priority`  
+  Synonym for `-level`.
 
- - `-facility` is the same argument accepted by command
+- `-format` *message_format*  
+  Limited support for syslog formatting. The format string must contain `%s`
+  where the message will be substituted.
 
-# OPTIONS INTERNAL HANDLING
+- `-facility` *facility*  
+  Override the global facility for this thread only.
 
-The *::syslog::open* and *::syslog::log* options become persistent across
-subsequent calls. Whereas *::syslog::log* options status is interpreter/thread
-private *::syslog::open* calls change the per-process global status of a
-connection that needs to be reset on every call. A sensible approach using
-the *syslog* package is therefore to call once *::syslog::open* for every
-process and then call *::syslog::log* with 
+## ::syslog::configure
 
-# EXAMPLE
+Set configuration options without emitting a message. This command accepts both
+global options (same as `::syslog::open`) and per-thread options (same as
+`::syslog::log`). If a global option changes, the process-wide connection is
+reopened.
+
+## ::syslog::cget
+
+Return the current configuration.
+
+- With no arguments, returns the per-thread options as a Tcl list of
+  `-option value` pairs.
+- With `-global`, returns the process-wide options (global state) as a Tcl list.
+
+Option lists returned by *::syslog::cget* have a form suitable to be passed as
+as arguments to *::syslog::configure* and are equivalent to storing the
+configuration for later use.
+
+# RATIONALE
+
+The syslog connection established by *openlog* is process-wide, while per-thread
+settings (level, facility override, format) should be isolated in each thread.
+The separation between `::syslog::open` and `::syslog::log` mirrors this design:
+
+- `::syslog::open` manages the process-level connection and options that should
+  be set once and shared.
+- `::syslog::log` manages per-thread options that can differ across interpreters.
+
+This avoids the overhead of reopening the syslog connection for every log call,
+while still allowing per-thread customization.
+
+# EXAMPLES
 
 ```tcl
 package require syslog
 
 ::syslog::open -ident myapp -facility local0 -pid
 ::syslog::log -level info "An info message..."
-#equivalently
+# equivalently
 ::syslog::log info "An info message...."
 ::syslog::log -facility user info "Info message 2...."
-#subsequent calls to log message preserve the state
-#of the last call and options can be omitted
+# subsequent calls preserve thread-local options
 ::syslog::log "Info message 3...."
-
+```
 
 # COMPATIBILITY
 
-The global space command *syslog* is provided for compatibility but it's
-deprecated because it potentially generates much overhead calling *openlog*
-every time. This command accepts the whole set of the *::syslog::log* and
-::syslog::open*
+The global space command *syslog* is provided for compatibility but it is
+deprecated because it can reopen *openlog* implicitly. This command accepts
+both global options and per-thread options, but it should be replaced by
+explicit `::syslog::open` and `::syslog::log` calls.
 
 ```tcl
 package require syslog
@@ -174,6 +215,11 @@ tclsh[7049]: Message 5.1
 my_ident[7049]: Message 5.2
 my_ident[7049]: Message 5.3
 ```
+
+# REFERENCES
+
+- Michael Kerrisk, *The Linux Programming Interface*, No Starch Press, 2010,
+  ISBN 978-1-59327-220-3.
 
 # AUTHORS
 
