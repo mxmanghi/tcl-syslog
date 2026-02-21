@@ -1,9 +1,20 @@
+21-02-2026 Massimo Manghi <mxmanghi@apache.org>
+	* doc/tcl-syslog.md: regenerated to have the correct package version displayed
+	* index.html: removing old HTML manual page
+	* VERSION: bumping to version 2.0.1 and re-release
+
+20-02-2026 Massimo Manghi <mxmanghi@apache.org>
+	* unix/: reorganizing the code into several compilation unit. Adopting
+	X-macro patterns for API option definition and control
+	* doc: man page rewritten with lowdown convention format
+	* VERSION: bumping to version 2.0.0 and releasing it
+
 02-02-2026 Massimo Manghi <mxmanghi@apache.org>
-    * unix/syslog.c: storing state variable in a thread private structure. It
-    should fix the occurence (though rare) of options definition loss
-    * pkgIndex.tcl.in: Update with latest version of pkgIndex.tcl.in taken from
-    the SampleExtension Tcl Core repository.
-    * Makefile.in: devolve to config.h most symbols definitions
+	* unix/syslog.c: storing state variable in a thread private structure. It
+	should fix the occurence (though rare) of options definition loss
+	* pkgIndex.tcl.in: Update with latest version of pkgIndex.tcl.in taken from
+	the SampleExtension Tcl Core repository.
+	* Makefile.in: devolve to config.h most symbols definitions
 
 08-07-2025 Massimo Manghi <mxmanghi@apache.org>
 	* VERSION: new version 1.2.7

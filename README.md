@@ -170,6 +170,11 @@ my_ident[7049]: Message 5.2
 my_ident[7049]: Message 5.3
 ```
 
+# REFERENCES
+
+- Michael Kerrisk, *The Linux Programming Interface*, No Starch Press, 2010,
+  ISBN 978-1-59327-220-3.
+
 # AUTHORS
 
 - Alexandros Stergiakis <sterg@kth.se>
