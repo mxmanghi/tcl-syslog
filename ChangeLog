@@ -1,4 +1,6 @@
 21-02-2026 Massimo Manghi <mxmanghi@apache.org>
+    * tests/runtests.tcl: make script indipendent from the cwd
+    * Makefile.in: call runtests.tcl instead all.tcl (can be removed)
 	* doc/tcl-syslog.md: regenerated to have the correct package version displayed
 	* index.html: removing old HTML manual page
 	* VERSION: bumping to version 2.0.1 and re-release

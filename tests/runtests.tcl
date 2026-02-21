@@ -18,13 +18,16 @@
 package require fileutil
 
 set auto_path [concat "." $auto_path]
-set version [string trim [::fileutil::cat [file join .. VERSION]]]
+
+set current_script_path [file dirname [info script]]
+
+set version [string trim [::fileutil::cat [file join $current_script_path .. VERSION]]]
 
 package require tcltest
 package require harness
 #package require syslog
 
-load ../libsyslog${version}.so
+load [file join $current_script_path .. libsyslog${version}.so]
 
 source [file join [file dirname [info script]] harness.tcl]
 
