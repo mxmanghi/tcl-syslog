@@ -1,0 +1,265 @@
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "tcl-syslog" "n" "2.0.1" "Tcl-Extensions" ""
+.SH NAME
+.LP
+tcl-syslog - Syslog interface for Tcl
+.SH SYNOPSIS
+.LP
+.EX
+package require syslog
+
+::syslog::open ?-ident ident? ?-facility facility? ?-pid? ?-perror? ?-console? ?-nodelay?
+::syslog::close
+::syslog::log ?-level level? ?-priority level? ?-facility facility? ?-format message_format? message
+::syslog::configure ?-ident ident? ?-facility facility? ?-pid? ?-perror? ?-console? ?-nodelay?
+::syslog::configure ?-level level? ?-priority level? ?-facility facility? ?-format message_format?
+::syslog::cget
+::syslog::cget -global
+
+syslog ?-ident ident? ?-facility facility? ?-pid? ?-perror? ?-console? ?-nodelay? ?-level level? message
+.EE
+.SH DESCRIPTION
+.LP
+Syslog is a standard for forwarding log messages to local and other logging
+services available on a TCP/IP network. It is typically used for computer
+system management and security auditing; usually to aggregate log messages in a
+central repository. It is standardized within the Syslog working group of the
+IETF. Syslog is available in all POSIX compliant and POSIX-like Operating
+Systems.
+.PP
+This package provides a Tcl interface to the standard \fIsyslog\fR service. It
+creates a Tcl namespace with commands for opening and closing the connection to
+syslogd, sending messages to the syslog service, and querying configuration.
+.PP
+The current version also provides the global namespace command \fIsyslog\fR for
+compatibility with earlier versions of the package. It is deprecated and kept
+only for backward compatibility.
+.SH COMMANDS
+.SS
+::syslog::open
+.LP
+Establish the process-wide connection to the syslog facility (calls \fIopenlog\fR).
+This command should be called once per process (typically at startup). Options
+set here are global and shared among threads.
+.PP
+Options:
+.IP "\(bu" 3
+\f(CR-ident\fR \fIident\fR
+.br
+Optional tag used by syslog to identify the process or log context.
+.IP "\(bu" 3
+\f(CR-pid\fR
+.br
+Include the process ID in each syslog message.
+.IP "\(bu" 3
+\f(CR-perror\fR
+.br
+Print the message also to stderr.
+.IP "\(bu" 3
+\f(CR-console\fR
+.br
+Write directly to the system console if syslogd is unavailable.
+.IP "\(bu" 3
+\f(CR-nodelay\fR
+.br
+Open the connection immediately instead of waiting for the first message.
+.IP "\(bu" 3
+\f(CR-facility\fR \fIfacility\fR
+.br
+Set the default facility for this process. Valid facilities are:
+.LP
+.EX
+Facility    Description
+auth        security/authorization messages
+authpriv    security/authorization messages (private)
+cron        clock daemon (cron and at)
+daemon      system daemons without separate facility value
+ftp         ftp daemon
+kern        kernel messages
+local0      local use (0)
+local1      local use (1)
+local2      local use (2)
+local3      local use (3)
+local4      local use (4)
+local5      local use (5)
+local6      local use (6)
+local7      local use (7)
+lpr         line printer subsystem
+mail        mail subsystem
+news        USENET news subsystem
+syslog      messages generated internally by syslogd(8)
+user        generic user-level messages
+uucp        UUCP subsystem
+.EE
+.LP
+The default facility is \f(CRuser\fR.
+.SS
+::syslog::close
+.LP
+Close the process-wide connection to syslog (calls \fIcloselog\fR). It is safe to
+call this multiple times, but unwise if the code is supposed to log more
+lines. It will work, but it comes at the cost of re-establishing the connection
+to the syslog service
+.SS
+::syslog::log
+.LP
+Send a log message. Options set here are per-thread (interpreter-local) and
+persist across subsequent calls in the same thread.
+.PP
+Options:
+.IP "\(bu" 3
+\f(CR-level\fR \fIlevel\fR
+.br
+Describe the severity of the message. Valid levels are:
+.LP
+.EX
+Priority    Description
+emergency   system is unusable
+alert       action must be taken immediately
+critical    critical conditions
+error       error conditions
+warning     warning conditions
+notice      normal, but significant, condition
+info        informational message
+debug       debug-level message
+.EE
+.LP
+The default level is \f(CRinfo\fR.
+.IP "\(bu" 3
+\f(CR-priority\fR
+.br
+Synonym for \f(CR-level\fR.
+.IP "\(bu" 3
+\f(CR-format\fR \fImessage_format\fR
+.br
+Limited support for syslog formatting. The format string must contain \f(CR%s\fR
+where the message will be substituted.
+.IP "\(bu" 3
+\f(CR-facility\fR \fIfacility\fR
+.br
+Override the global facility for this thread only.
+.SS
+::syslog::configure
+.LP
+Set configuration options without emitting a message. This command accepts both
+global options (same as \f(CR::syslog::open\fR) and per-thread options (same as
+\f(CR::syslog::log\fR). If a global option changes, the process-wide connection is
+reopened.
+.SS
+::syslog::cget
+.LP
+Return the current configuration.
+.IP "\(bu" 3
+With no arguments, returns the per-thread options as a Tcl list of
+\f(CR-option value\fR pairs.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 3
+With \f(CR-global\fR, returns the process-wide options (global state) as a Tcl list.
+.LP
+Option lists returned by \fI::syslog::cget\fR have a form suitable to be passed as
+as arguments to \fI::syslog::configure\fR and are equivalent to storing the
+configuration for later use.
+.SH RATIONALE
+.LP
+The syslog connection established by \fIopenlog\fR is process-wide, while per-thread
+settings (level, facility override, format) should be isolated in each thread.
+The separation between \f(CR::syslog::open\fR and \f(CR::syslog::log\fR mirrors this design:
+.IP "\(bu" 3
+\f(CR::syslog::open\fR manages the process-level connection and options that should
+be set once and shared.
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 3
+\f(CR::syslog::log\fR manages per-thread options that can differ across interpreters.
+.LP
+This avoids the overhead of reopening the syslog connection for every log call,
+while still allowing per-thread customization.
+.SH EXAMPLES
+.LP
+.EX
+package require syslog
+
+::syslog::open -ident myapp -facility local0 -pid
+::syslog::log -level info \(dqAn info message...\(dq
+# equivalently
+::syslog::log info \(dqAn info message....\(dq
+::syslog::log -facility user info \(dqInfo message 2....\(dq
+# subsequent calls preserve thread-local options
+::syslog::log \(dqInfo message 3....\(dq
+.EE
+.SH COMPATIBILITY
+.LP
+The global space command \fIsyslog\fR is provided for compatibility but it is
+deprecated because it can reopen \fIopenlog\fR implicitly. This command accepts
+both global options and per-thread options, but it should be replaced by
+explicit \f(CR::syslog::open\fR and \f(CR::syslog::log\fR calls.
+.LP
+.EX
+package require syslog
+
+syslog critical \(dqMessage 1\(dq
+syslog -ident tclsh warning \(dqMessage 2\(dq
+syslog -facility local0 notice \(dqMessage 3\(dq
+syslog -ident tclsh -facility user error \(dqMessage 4\(dq
+syslog -pid critical \(dqMessage 5.0\(dq
+syslog -pid -ident tclsh critical \(dqMessage 5.1\(dq
+syslog -pid -facility local0 debug \(dqMessage 5.1\(dq
+syslog -pid -facility local1 -ident tclsh info \(dqMessage 5.2\(dq
+syslog -pid -ident tclsh -facility local2 warning \(dqMessage 5.3\(dq
+.EE
+.PP
+Outputs in \f(CR/var/log/syslog\fR (syslog timestamps and line prefix removed):
+.LP
+.EX
+tclsh: Message 1
+tclsh: Message 2
+tclsh: Message 3
+testident: Message 4
+tclsh[7049]: Message 5.0
+my_ident[7049]: Message 5.1
+tclsh[7049]: Message 5.1
+my_ident[7049]: Message 5.2
+my_ident[7049]: Message 5.3
+.EE
+.SH REFERENCES
+.IP "\(bu" 3
+Michael Kerrisk, \fIThe Linux Programming Interface\fR, No Starch Press, 2010,
+ISBN 978-1-59327-220-3.
+.SH AUTHORS
+.IP "\(bu" 3
+Alexandros Stergiakis \c
+.MT sterg@kth.se
+.ME
+.if n \
+.sp -1
+.if t \
+.sp -0.25v
+.IP "\(bu" 3
+Massimo Manghi \c
+.MT mxmanghi@apache.org
+.ME
+.SH COPYRIGHT
+.LP
+Copyright \(co 2008 Alexandros Stergiakis
+.br
+Copyright \(co 2024-2026 Massimo Manghi
+.PP
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+.PP
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+.PP
+You should have received a copy of the GNU General Public License along with
+this program. If not, see \c
+.UR http://www.gnu.org/licenses/
+.UE \c
+\&.

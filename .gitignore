@@ -1,7 +1,6 @@
 pkgIndex.tcl
 Makefile
 autom4te.cache/*
-doc/tcl-syslog.n
 config.log
 config.status
 configure
