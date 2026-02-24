@@ -1,4 +1,4 @@
-# tcl-syslog 2.0.2
+# tcl-syslog 2.0.1
 
 tcl-syslog - Syslog interface for Tcl
 
