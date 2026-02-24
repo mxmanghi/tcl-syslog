@@ -1,5 +1,5 @@
 .\" -*- mode: troff; coding: utf-8 -*-
-.TH "tcl-syslog" "n" "2.0.1" "Tcl-Extensions" ""
+.TH "tcl-syslog" "n" "2.0.2" "Tcl-Extensions" ""
 .SH NAME
 .LP
 tcl-syslog - Syslog interface for Tcl
