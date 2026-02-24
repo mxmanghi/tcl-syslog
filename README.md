@@ -1,4 +1,4 @@
-# tcl-syslog 2.0.1
+# tcl-syslog 2.0.2
 
 tcl-syslog - Syslog interface for Tcl
 
@@ -9,7 +9,6 @@ package require syslog
 
 syslog::open ?-ident ident? ?-facility facility? ?-pid? ?-perror? ?-console?
 syslog::log  ?-level level? ?-format message_format? message
-syslog::isopen
 syslog::close
 
 syslog ?-ident ident? ?-facility facility? -pid? ?-perror? level message
