@@ -75,7 +75,7 @@
     X("-console",LOG_CONS,log_console_idx,GLOBAL_OPTION_CLASS) \
     X("-nodelay",LOG_NDELAY,log_ndelay_idx,GLOBAL_OPTION_CLASS) \
     X("-ident",NOOPT,ident_idx,GLOBAL_OPTION_CLASS) \
-    X("-facility",NOOPT,facility_idx,ALL_OPTION_CLASSES) \
+    X("-facility",NOOPT,facility_idx,UNDEFINED_OPTION_CLASS) \
     X("-priority",NOOPT,priority_idx,PER_THREAD_OPTION_CLASS) \
     X("-level",NOOPT,level_idx,PER_THREAD_OPTION_CLASS) \
     X("-format",NOOPT,format_idx,PER_THREAD_OPTION_CLASS)

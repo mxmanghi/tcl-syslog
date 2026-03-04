@@ -77,9 +77,9 @@ int parse_options (Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],ParseAr
     while (index < objc) {
 
         /* Read the docs! Tcl_GetIndexFromObj stores an 
-         * error in the interpreter if a the search
+         * error in the interpreter if the search
          * string is not found in the string array.
-         * Setting it to NULL avoids this sid 
+         * Setting it to NULL avoids this
          */
 
         if (Tcl_GetIndexFromObj(NULL,objv[index],options,"option",TCL_EXACT,&option_idx) == TCL_ERROR) {
@@ -104,7 +104,7 @@ int parse_options (Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],ParseAr
             
         }
 
-        if ((opt_class[option_idx] & pao->option_class) == 0) {
+        if ((opt_class[option_idx] != UNDEFINED_OPTION_CLASS) && (opt_class[option_idx] & pao->option_class) == 0) {
             pao->unhandled_opt_index = index;
             return INVALID_OPTION_CLASS;
         }
@@ -186,12 +186,18 @@ int parse_options (Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],ParseAr
                 }
 
                 const char *facility_s = Tcl_GetString(objv[++index]);
-                int f = facility_cli_to_code(interp, facility_s);
+                int f = facility_cli_to_code(interp,facility_s);
                 if (f == ERROR) {
                     Tcl_SetObjResult(interp,Tcl_NewStringObj("Unknown facility specified.",-1));
                     return ERROR;
                 }
-                pao->status->facility = f;
+                if (pao->facility_is_private) {
+                    pao->modified_opt_class |= PER_THREAD_OPTION_CLASS;
+                    pao->status->facility = f;
+                } else {
+                    pao->modified_opt_class |= GLOBAL_OPTION_CLASS;
+                    g_status->facility = f;
+                }
                 fchanged++;
                 pao->last_option_index = index;
                 break;

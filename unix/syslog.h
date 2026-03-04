@@ -73,9 +73,10 @@ typedef struct SyslogGlobalStatus {
     bool    opened;
 } SyslogGlobalStatus;
 
-#define    GLOBAL_OPTION_CLASS         (int)1
-#define    PER_THREAD_OPTION_CLASS     (int)2
-#define    ALL_OPTION_CLASSES          (int)3
+#define    UNDEFINED_OPTION_CLASS   (int)0
+#define    GLOBAL_OPTION_CLASS      (int)1
+#define    PER_THREAD_OPTION_CLASS  (int)2
+#define    ALL_OPTION_CLASSES       (int)3
 
 typedef int OptionClass;
 
@@ -85,6 +86,7 @@ typedef struct _ParseArgsOptions {
     int                 unhandled_opt_index;
     OptionClass         option_class;
     OptionClass         modified_opt_class;
+    bool                facility_is_private;
 } ParseArgsOptions;
 
 #ifdef TCL_THREADS

@@ -115,6 +115,7 @@ static void init_parse_options(ParseArgsOptions* pao)
     pao->unhandled_opt_index = 0;
     pao->option_class = ALL_OPTION_CLASSES;
     pao->modified_opt_class = 0;
+    pao->facility_is_private = true;
 }
 
 
@@ -170,7 +171,7 @@ static void wrong_arguments_message (Tcl_Interp* interp,int c,Tcl_Obj *CONST86 o
 
 static void wrong_command_option(Tcl_Interp *interp, int objc, Tcl_Obj *const objv[],int cli_option_idx)
 {
-    Tcl_Obj* error_code_list = Tcl_NewObj();
+    Tcl_Obj*    error_code_list = Tcl_NewObj();
     const char* command = Tcl_GetString(objv[0]);
 
     Tcl_IncrRefCount(error_code_list);
@@ -238,6 +239,8 @@ static int SyslogOpenCmd (ClientData clientData,
     ParseArgsOptions pao;
 
     init_parse_options(&pao);
+    pao.facility_is_private = false;
+    pao.option_class = GLOBAL_OPTION_CLASS;
 
     SYSLOG_MUTEX_LOCK
     int parse_result = parse_options (interp,objc,objv,&pao);
@@ -395,12 +398,14 @@ static int SyslogCmd (ClientData clientData,Tcl_Interp *interp,int objc,Tcl_Obj 
      */
 
     /* This CLI options are checked here for compatibility but it will be removed
-       in new releases requiring the socket to the syslog utility to be explicitly
-       reopened with new options */
+     * in new releases requiring the socket to the syslog utility to be explicitly
+     * reopened with new options
+     */
 
     SYSLOG_MUTEX_LOCK
 
     int tcl_exit_code = TCL_OK;
+    pao.option_class  = ALL_OPTION_CLASSES;
     int parse_results = parse_options(interp,objc,objv,&pao);
     if (parse_results == ERROR) {
         tcl_exit_code = TCL_ERROR;
@@ -453,6 +458,7 @@ static int SyslogLogCmd (ClientData clientData,
         return TCL_ERROR;
     }
 
+    pao.option_class  = PER_THREAD_OPTION_CLASS;
     int parse_result = parse_options(interp,objc, objv, &pao);
     if (parse_result == ERROR) {
         return TCL_ERROR;

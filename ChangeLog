@@ -1,3 +1,7 @@
+03-03-2026 Massimo Manghi <massimo.manghi@rivetweb.org>
+    * unix/syslog.c,unix/parse_options.c: add UNDEFINED_OPTION_CLASS for proper
+    handling of option -facility (since this is both global and per thread)
+
 24-02-2026 Massimo Manghi <mxmanghi@apache.org>
 	* configure.ac: remove syslog.h and params.h from TEA_ADD_HEADER macro as this
 	causes potential conflicts with libc
