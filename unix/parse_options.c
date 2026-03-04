@@ -63,10 +63,10 @@ static void missing_option_value (Tcl_Interp* interp,char* cmd,Tcl_Obj* option)
 
 int parse_options (Tcl_Interp *interp, int objc, Tcl_Obj *CONST86 objv[],ParseArgsOptions* pao)
 {
-    int  index    = 1;
-    int  fchanged = 0;
-    int  option_idx;
-    char* tcl_command = Tcl_GetString(objv[0]);
+    int     index    = 1;
+    int     fchanged = 0;
+    int     option_idx;
+    char*   tcl_command = Tcl_GetString(objv[0]);
 
     pao->status->facility = -1;
     if (pao->status->format != g_default_format) {

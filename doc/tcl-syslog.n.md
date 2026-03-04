@@ -54,7 +54,8 @@ Options:
   Optional tag used by syslog to identify the process or log context.
 
 - `-pid`  
-  Include the process ID in each syslog message.
+  If *rsyslog* or the *logger* log line formatting rules don't already show the
+  pid it can be added by specifying this option
 
 - `-perror`  
   Print the message also to stderr.
@@ -242,3 +243,7 @@ PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
 this program. If not, see <http://www.gnu.org/licenses/>.
+
+# SEE ALSO
+
+syslog(3), openlog(3), closelog(3), logger(1), syslogd(8), tcl(3tcl)
