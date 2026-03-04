@@ -27,7 +27,7 @@ package require tcltest
 package require harness
 #package require syslog
 
-load [file join $current_script_path .. libsyslog${version}.so]
+load [file join $current_script_path .. libtcl9syslog${version}.so]
 
 source [file join [file dirname [info script]] harness.tcl]
 

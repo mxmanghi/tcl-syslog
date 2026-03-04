@@ -16,9 +16,22 @@ package require syslog
     -constraints hasSyslogWatcher \
     -body {
         package require harness
-        set msg "${::base}-regexp seq=42"
+        set msg "${::base}-regexp seq=0101"
         syslog -pid -ident test_ident -facility local2 notice $msg
         set hit [::syslogtest::harness::wait_for_response {seq=[0-9]+} 8000 regexp]
-        regexp -- {seq=42} [dict get $hit payload]
+        regexp -- {seq=[0-9]+} [dict get $hit payload]
     } -result 1
+
+::tcltest::test syslog-template-1.2 {test basic ::syslog::open ::syslog::log option handling} \
+    -constraints hasSyslogWatcher \
+    -body {
+        package require harness
+        set r [catch {
+            set msg "${::base}-regexp seq=0102"
+            ::syslog::open -ident "test1.2"
+            ::syslog::log -facility local2 notice $msg
+        }]
+        set r
+    } -result 0
+
 
