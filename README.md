@@ -41,7 +41,7 @@ If a connection to the *syslog* facility hasn't been already established
 preserved in *tcl-syslog*, calling openlog is meaninful if done just once at
 process startup. It's connection parameters are process-wide and shared among
 threads. For this purpose this version of the package implements three new
-command *::syslog::open*, *::syslog::close* and *::syslog::isopen*.
+command *::syslog::open*, *::syslog::close* and *::syslog::log*.
 ::syslog::open accept options to be passed to *openlog* which are supposed to
 not change for the process lifetime. Actual logging is done through command
 ::syslog::log* which in turn accept its own set of options. Option to be passed
