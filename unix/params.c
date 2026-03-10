@@ -26,27 +26,26 @@
 #include "syslog.h"
 #include "params.h"
 
-
 static char* levels[num_syslog_levels+1] = {
 #define SYSLOG_LEVEL_CLI(level,level_code,level_idx,n) [level_idx] = level,
     SYSLOG_LEVELS(SYSLOG_LEVEL_CLI)
     [num_syslog_levels] = NULL
 };
 
-static int level_code[num_syslog_levels+1] = {
 #define SYSLOG_LEVEL_CODE(level,level_code,level_idx,n) [level_idx] = level_code,
+static int level_code[num_syslog_levels+1] = {
     SYSLOG_LEVELS(SYSLOG_LEVEL_CODE)
     [num_syslog_levels] = -1
 };
 
-static char* facilities[num_syslog_facilities + 1] = {
 #define SYSLOG_FAC_CLI(facility,facility_code,facility_idx,n) [facility_idx] = facility,
+static char* facilities[num_syslog_facilities + 1] = {
     SYSLOG_FACILITIES(SYSLOG_FAC_CLI)
     [num_syslog_facilities] = NULL
 };
 
-static int facility_code[num_syslog_facilities + 1] = {
 #define SYSLOG_FAC_CODE(facility,facility_code,facility_idx,n) [facility_idx] = facility_code,
+static int facility_code[num_syslog_facilities + 1] = {
     SYSLOG_FACILITIES(SYSLOG_FAC_CODE)
     [num_syslog_facilities] = -1
 };
